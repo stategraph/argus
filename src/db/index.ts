@@ -64,8 +64,21 @@ export function exec(sql: string): void {
 }
 
 export function closeDb(): void {
-  if (db) {
-    db.close();
-    db = null;
+  if (!db) return;
+
+  const dbRef = db;
+  db = null;
+
+  try {
+    // Force WAL checkpoint to ensure all data is written
+    dbRef.pragma('wal_checkpoint(TRUNCATE)');
+  } catch (err) {
+    console.error('WAL checkpoint failed:', err);
+  }
+
+  try {
+    dbRef.close();
+  } catch (err) {
+    console.error('Database close failed:', err);
   }
 }

@@ -11,6 +11,8 @@ import { config } from './config.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import { initDb, closeDb } from './db/index.js';
+import { cleanupOctokit, initOctokit } from './lib/github.js';
+import { cleanupGitProcesses } from './lib/git.js';
 import { authRoutes } from './routes/auth.js';
 import { homeRoutes } from './routes/home.js';
 import { prRoutes } from './routes/pr.js';
@@ -39,6 +41,9 @@ async function start() {
 
     // Initialize GitHub token authentication
     await initTokenAuth();
+
+    // Initialize Octokit singleton
+    initOctokit(config.githubToken);
 
     // Register plugins
     await fastify.register(fastifyCookie);
@@ -80,14 +85,65 @@ async function start() {
 }
 
 // Graceful shutdown
-const signals = ['SIGINT', 'SIGTERM'];
-signals.forEach((signal) => {
-  process.on(signal, async () => {
-    console.log(`\nReceived ${signal}, shutting down...`);
+let isShuttingDown = false;
+
+async function shutdown(signal: string) {
+  if (isShuttingDown) {
+    return;
+  }
+  isShuttingDown = true;
+
+  console.log(`\nReceived ${signal}, shutting down gracefully...`);
+  const shutdownStart = Date.now();
+
+  // Reduced timeout - should complete in <1s normally
+  const forceExitTimer = setTimeout(() => {
+    console.error('Forced shutdown after 3s timeout');
+    process.exit(1);
+  }, 3000);
+
+  try {
+    // 1. Close Fastify server (stops accepting new connections)
     await fastify.close();
-    await closeDb();
+    console.log(`Fastify closed (${Date.now() - shutdownStart}ms)`);
+
+    // 2. Terminate any active git processes
+    cleanupGitProcesses();
+    console.log(`Git cleanup (${Date.now() - shutdownStart}ms)`);
+
+    // 3. Close HTTP agents (Octokit cleanup)
+    cleanupOctokit();
+    console.log(`HTTP agents closed (${Date.now() - shutdownStart}ms)`);
+
+    // 4. Close database with WAL checkpoint
+    closeDb();
+    console.log(`Database closed (${Date.now() - shutdownStart}ms)`);
+
+    // Clean exit
+    clearTimeout(forceExitTimer);
+    const totalTime = Date.now() - shutdownStart;
+    console.log(`Shutdown completed in ${totalTime}ms`);
     process.exit(0);
-  });
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    clearTimeout(forceExitTimer);
+    process.exit(1);
+  }
+}
+
+// Handle shutdown signals
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  shutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
+  shutdown('unhandledRejection');
 });
 
 start();

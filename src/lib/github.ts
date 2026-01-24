@@ -1,10 +1,56 @@
 import { Octokit } from '@octokit/rest';
+import http from 'http';
+import https from 'https';
 import { config } from '../config.js';
 import { query } from '../db/index.js';
 
-// Create an Octokit instance with the configured token
-export function createUserOctokit(accessToken?: string): Octokit {
-  return new Octokit({ auth: accessToken || config.githubToken });
+// HTTP agents for keep-alive connection pooling
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 50
+});
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 50
+});
+
+// Singleton Octokit instance (single-token auth = one user)
+let octokitInstance: Octokit | null = null;
+
+export function initOctokit(accessToken: string): Octokit {
+  if (octokitInstance) {
+    return octokitInstance;
+  }
+
+  octokitInstance = new Octokit({
+    auth: accessToken,
+    request: {
+      agent: (url: string) => url.startsWith('https:') ? httpsAgent : httpAgent
+    }
+  });
+
+  return octokitInstance;
+}
+
+export function getOctokit(): Octokit {
+  if (!octokitInstance) {
+    throw new Error('Octokit not initialized. Call initOctokit first.');
+  }
+  return octokitInstance;
+}
+
+export function cleanupOctokit(): void {
+  httpAgent.destroy();
+  httpsAgent.destroy();
+  octokitInstance = null;
+}
+
+// Backward compatibility - returns singleton
+export function createUserOctokit(_accessToken?: string): Octokit {
+  return getOctokit();
 }
 
 // API response types
@@ -34,6 +80,10 @@ export interface PRData {
   created_at: string;
   updated_at: string;
   merged_at: string | null;
+  merged_by?: {
+    login: string;
+    avatar_url: string;
+  } | null;
   mergeable: boolean | null;
   mergeable_state: string;
   commits: number;
@@ -41,6 +91,18 @@ export interface PRData {
   deletions: number;
   changed_files: number;
   draft: boolean;
+  assignees?: Array<{
+    login: string;
+    avatar_url: string;
+  }>;
+  requested_reviewers?: Array<{
+    login: string;
+    avatar_url: string;
+  }>;
+  requested_teams?: Array<{
+    name: string;
+    slug: string;
+  }>;
 }
 
 export interface CheckRun {
@@ -482,19 +544,62 @@ export async function fetchHeadSha(
   };
 }
 
-// Fetch PR timeline events (force pushes, etc.)
+export interface TimelineEvent {
+  event: string;
+  created_at: string;
+  actor?: {
+    login: string;
+    avatar_url: string;
+  };
+  // For commits
+  sha?: string;
+  commit_id?: string;
+  // For reviews
+  state?: string;
+  body?: string;
+  // For assignments
+  assignee?: {
+    login: string;
+    avatar_url: string;
+  };
+  assigner?: {
+    login: string;
+    avatar_url: string;
+  };
+  // For review requests
+  requested_reviewer?: {
+    login: string;
+    avatar_url: string;
+  };
+  requested_team?: {
+    name: string;
+    slug: string;
+  };
+  // For merges
+  commit_url?: string;
+  // For labels
+  label?: {
+    name: string;
+    color: string;
+  };
+  // For milestones
+  milestone?: {
+    title: string;
+  };
+  // For renames
+  rename?: {
+    from: string;
+    to: string;
+  };
+}
+
+// Fetch PR timeline events (force pushes, approvals, merges, etc.)
 export async function fetchPRTimeline(
   octokit: Octokit,
   owner: string,
   repo: string,
   prNumber: number
-): Promise<Array<{
-  event: string;
-  created_at: string;
-  sha?: string;
-  commit_id?: string;
-  from_commit_id?: string;
-}>> {
+): Promise<TimelineEvent[]> {
   try {
     const response = await octokit.request(
       'GET /repos/{owner}/{repo}/issues/{issue_number}/timeline',
@@ -509,13 +614,7 @@ export async function fetchPRTimeline(
       }
     );
 
-    return response.data as Array<{
-      event: string;
-      created_at: string;
-      sha?: string;
-      commit_id?: string;
-      from_commit_id?: string;
-    }>;
+    return response.data as TimelineEvent[];
   } catch (err) {
     console.error('Failed to fetch PR timeline:', err);
     return [];

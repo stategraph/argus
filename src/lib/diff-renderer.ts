@@ -10,6 +10,21 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+// Line type display mappings (excludes 'header' which is handled separately)
+type ContentLineType = 'add' | 'del' | 'context';
+
+const LINE_TYPE_CLASSES: Record<ContentLineType, string> = {
+  add: 'diff-line-add',
+  del: 'diff-line-del',
+  context: 'diff-line-context',
+};
+
+const LINE_TYPE_PREFIXES: Record<ContentLineType, string> = {
+  add: '+',
+  del: '-',
+  context: ' ',
+};
+
 // Render a single diff line
 function renderLine(
   line: DiffLine,
@@ -20,13 +35,11 @@ function renderLine(
   repo: string,
   prNumber: number
 ): string {
-  const lineClass = line.type === 'add' ? 'diff-line-add' :
-                    line.type === 'del' ? 'diff-line-del' :
-                    'diff-line-context';
-
-  const oldNum = line.oldLineNum !== null ? line.oldLineNum : '';
-  const newNum = line.newLineNum !== null ? line.newLineNum : '';
-  const prefix = line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' ';
+  const contentType = line.type as ContentLineType;
+  const lineClass = LINE_TYPE_CLASSES[contentType];
+  const oldNum = line.oldLineNum ?? '';
+  const newNum = line.newLineNum ?? '';
+  const prefix = LINE_TYPE_PREFIXES[contentType];
 
   // For commenting, use the new line number for additions/context, old for deletions
   const commentLine = line.type === 'del' ? line.oldLineNum : line.newLineNum;
@@ -116,7 +129,17 @@ export function renderFile(
   totalLines: number,
   owner: string,
   repo: string,
-  prNumber: number
+  prNumber: number,
+  comments: Array<{
+    id: number;
+    user: { login: string; avatar_url: string };
+    body: string;
+    renderedBody: string;
+    created_at: string;
+    path: string;
+    line: number | null;
+    side: 'LEFT' | 'RIGHT';
+  }> = []
 ): string {
   const path = file.newPath || file.oldPath;
   const filename = path.split('/').pop() || path;
@@ -187,12 +210,35 @@ export function renderFile(
       </details>`;
   }
 
+  // Group comments by line and side for inline rendering
+  const commentsByLineAndSide = new Map<string, typeof comments>();
+  for (const comment of comments) {
+    if (comment.line !== null) {
+      const key = `${comment.side}-${comment.line}`;
+      if (!commentsByLineAndSide.has(key)) {
+        commentsByLineAndSide.set(key, []);
+      }
+      commentsByLineAndSide.get(key)!.push(comment);
+    }
+  }
+
   // Render diff table
   let tableRows = '';
   for (const hunk of file.hunks) {
     tableRows += renderHunkHeader(hunk.header);
     for (const line of hunk.lines) {
       tableRows += renderLine(line, index, path, headSha, owner, repo, prNumber);
+
+      // Render comments for this line
+      const lineNumber = line.type === 'del' ? line.oldLineNum : line.newLineNum;
+      const side = line.type === 'del' ? 'LEFT' : 'RIGHT';
+      if (lineNumber !== null) {
+        const key = `${side}-${lineNumber}`;
+        const lineComments = commentsByLineAndSide.get(key);
+        if (lineComments && lineComments.length > 0) {
+          tableRows += renderInlineCommentThread(lineComments);
+        }
+      }
     }
   }
 
@@ -262,6 +308,67 @@ export function renderInlineCommentForm(): string {
     </template>`;
 }
 
+// Render inline comment thread (for displaying comments inline with diff lines)
+function renderInlineCommentThread(
+  comments: Array<{
+    id: number;
+    user: { login: string; avatar_url: string };
+    body: string;
+    renderedBody: string;
+    created_at: string;
+    line: number | null;
+  }>
+): string {
+  const commentsHtml = comments
+    .map((comment, index) => {
+      const date = new Date(comment.created_at);
+      const timeAgo = formatTimeAgo(date);
+
+      // Escape body for data attribute (replace quotes and newlines)
+      const escapedBody = comment.body
+        .replace(/"/g, '&quot;')
+        .replace(/\n/g, '\\n');
+
+      // Only show reply buttons on the last comment in the thread
+      const replyButtons = index === comments.length - 1 ? `
+        <div class="inline-comment-actions">
+          <button type="button" class="btn btn-small reply-to-comment"
+                  data-author="${escapeHtml(comment.user.login)}"
+                  data-comment-id="${comment.id}"
+                  style="padding: 0.375rem 0.5rem; margin-right: 0.25rem;">
+            Reply
+          </button>
+          <button type="button" class="btn btn-small reply-to-comment"
+                  data-author="${escapeHtml(comment.user.login)}"
+                  data-body="${escapedBody}"
+                  data-comment-id="${comment.id}"
+                  data-quote="true"
+                  style="padding: 0.375rem 0.5rem;">
+            💬
+          </button>
+        </div>` : '';
+
+      return `
+        <div class="inline-comment" data-comment-id="${comment.id}">
+          <div class="inline-comment-header">
+            <img src="${escapeHtml(comment.user.avatar_url)}" alt="${escapeHtml(comment.user.login)}" class="comment-avatar">
+            <span class="comment-author">${escapeHtml(comment.user.login)}</span>
+            <span class="comment-time" title="${date.toISOString()}">${timeAgo}</span>
+          </div>
+          <div class="inline-comment-body markdown-body">${comment.renderedBody}</div>
+          ${replyButtons}
+        </div>`;
+    })
+    .join('');
+
+  return `
+    <tr class="comment-thread-row">
+      <td colspan="4">
+        <div class="comment-thread">${commentsHtml}</div>
+      </td>
+    </tr>`;
+}
+
 // Comment thread renderer
 export function renderCommentThread(
   comments: Array<{
@@ -327,12 +434,11 @@ function formatTimeAgo(date: Date): string {
 // Render a simple diff hunk (for conversation tab)
 export function renderSimpleHunk(hunk: import('./diff-parser.js').DiffHunk): string {
   const rows = hunk.lines.map(line => {
-    const lineClass = line.type === 'add' ? 'diff-line-add' :
-                      line.type === 'del' ? 'diff-line-del' :
-                      'diff-line-context';
-    const oldNum = line.oldLineNum !== null ? line.oldLineNum : '';
-    const newNum = line.newLineNum !== null ? line.newLineNum : '';
-    const prefix = line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' ';
+    const contentType = line.type as ContentLineType;
+    const lineClass = LINE_TYPE_CLASSES[contentType];
+    const oldNum = line.oldLineNum ?? '';
+    const newNum = line.newLineNum ?? '';
+    const prefix = LINE_TYPE_PREFIXES[contentType];
 
     return `
       <tr class="diff-line ${lineClass}">
