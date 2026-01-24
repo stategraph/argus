@@ -58,13 +58,14 @@ export async function prRoutes(fastify: FastifyInstance) {
         const octokit = createUserOctokit(request.user!.accessToken);
 
         // Fetch PR data in parallel
-        const [pr, files, issueComments, reviewComments, reviews, commits] = await Promise.all([
+        const [pr, files, issueComments, reviewComments, reviews, commits, timeline] = await Promise.all([
           fetchPR(octokit, owner, repo, prNumber),
           fetchPRFiles(octokit, owner, repo, prNumber),
           fetchIssueComments(octokit, owner, repo, prNumber),
           fetchReviewComments(octokit, owner, repo, prNumber),
           fetchReviews(octokit, owner, repo, prNumber),
           fetchPRCommits(octokit, owner, repo, prNumber),
+          fetchPRTimeline(octokit, owner, repo, prNumber),
         ]);
 
         // Fetch checks (might fail if no checks)
@@ -124,7 +125,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: renderFile(diffFile, i, pr.head.sha, false, 0, owner, repo, prNumber),
+              renderedHtml: renderFile(diffFile, i, pr.head.sha, false, 0, owner, repo, prNumber, fileComments),
               sidebarHtml: renderFileSidebarItem(diffFile, i),
               truncated: false,
               totalLines: 0,
@@ -151,7 +152,8 @@ export async function prRoutes(fastify: FastifyInstance) {
               totalLines,
               owner,
               repo,
-              prNumber
+              prNumber,
+              fileComments
             ),
             sidebarHtml: renderFileSidebarItem(parsedFile, i),
             truncated: wasTruncated,
@@ -209,6 +211,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             ...r,
             renderedBody: renderMarkdown(r.body),
           })),
+          timeline,
           checksSummary,
           checks,
           statuses: combinedStatus.statuses,
@@ -302,8 +305,11 @@ export async function prRoutes(fastify: FastifyInstance) {
       try {
         const octokit = createUserOctokit(request.user!.accessToken);
 
-        // Fetch PR to get head SHA
-        const pr = await fetchPR(octokit, owner, repo, prNumber);
+        // Fetch PR to get head SHA and review comments
+        const [pr, reviewComments] = await Promise.all([
+          fetchPR(octokit, owner, repo, prNumber),
+          fetchReviewComments(octokit, owner, repo, prNumber),
+        ]);
 
         // Fetch files to get the specific file's patch
         const files = await fetchPRFiles(octokit, owner, repo, prNumber);
@@ -316,6 +322,14 @@ export async function prRoutes(fastify: FastifyInstance) {
         if (!file.patch) {
           return reply.send('<div class="diff-binary-notice">Binary file</div>');
         }
+
+        // Get comments for this file
+        const fileComments = reviewComments
+          .filter((c) => c.path === path)
+          .map((c) => ({
+            ...c,
+            renderedBody: renderMarkdown(c.body),
+          }));
 
         const parsedFile = parsePatch(file.patch, file.filename, file.status);
 
@@ -330,7 +344,8 @@ export async function prRoutes(fastify: FastifyInstance) {
           0,
           owner,
           repo,
-          prNumber
+          prNumber,
+          fileComments
         );
 
         // Return just the diff content (without the outer wrapper since we're replacing)

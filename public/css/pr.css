@@ -122,8 +122,18 @@
 .file-comments-header { padding: 0.375rem 0.5rem; cursor: pointer; list-style: none; font-size: 0.85rem; }
 .file-comments-header::-webkit-details-marker { display: none; }
 .inline-comment { padding: 0.5rem; border-bottom: 1px solid #eee; }
-.inline-comment-header { color: #666; font-size: 0.85rem; }
+.inline-comment-header { color: #666; font-size: 0.85rem; margin-bottom: 0.375rem; display: flex; align-items: center; gap: 0.5rem; }
 .comment-line { color: #664400; }
+.comment-avatar { width: 20px; height: 20px; border-radius: 50%; }
+.comment-author { font-weight: 500; }
+.comment-time { color: #888; font-size: 0.8rem; }
+
+/* Inline comment threads in diff */
+.comment-thread-row { background: #f6f8fa; }
+.comment-thread-row td { padding: 0.75rem; }
+.comment-thread { border-left: 3px solid #0969da; padding-left: 0.75rem; }
+.inline-comment-body { margin-top: 0.25rem; }
+.inline-comment-actions { margin-top: 0.5rem; display: flex; gap: 0.25rem; }
 
 /* Forms */
 .pr-comment-form, .pr-review-form { margin: 1rem 0; padding: 0.75rem; background: #f9f9f9; border: 1px solid #ddd; }

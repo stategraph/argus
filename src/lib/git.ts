@@ -1,7 +1,11 @@
 import { spawn } from 'child_process';
+import type { ChildProcess } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { config } from '../config.js';
+
+// Track active git processes for cleanup during shutdown
+const activeProcesses = new Set<ChildProcess>();
 
 export interface GitCommandResult {
   stdout: string;
@@ -52,11 +56,21 @@ async function execGit(
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
     });
 
+    // Track the process
+    activeProcesses.add(proc);
+
     let stdout = '';
     let stderr = '';
     let timedOut = false;
 
+    // Auto-cleanup helper
+    const cleanup = () => {
+      clearTimeout(timer);
+      activeProcesses.delete(proc);
+    };
+
     const timer = setTimeout(() => {
+      cleanup();
       timedOut = true;
       proc.kill();
       reject(new Error(`Git command timed out after ${timeout}ms`));
@@ -71,7 +85,7 @@ async function execGit(
     });
 
     proc.on('close', (code) => {
-      clearTimeout(timer);
+      cleanup();
       if (timedOut) return;
 
       const result = {
@@ -89,7 +103,7 @@ async function execGit(
     });
 
     proc.on('error', (err) => {
-      clearTimeout(timer);
+      cleanup();
       if (timedOut) return;
       const sanitizedMessage = token ? sanitizeError(err.message, token) : err.message;
       reject(new Error(`Git command error: ${sanitizedMessage}`));
@@ -211,4 +225,20 @@ export async function computeRangeDiff(
   } catch (err: any) {
     throw new Error(`Failed to compute range-diff: ${sanitizeError(err.message, token)}`);
   }
+}
+
+export function cleanupGitProcesses(): void {
+  if (activeProcesses.size === 0) return;
+
+  console.log(`Terminating ${activeProcesses.size} active git processes...`);
+
+  for (const proc of activeProcesses) {
+    try {
+      proc.kill('SIGTERM');
+    } catch (err) {
+      // Process may have already exited
+    }
+  }
+
+  activeProcesses.clear();
 }

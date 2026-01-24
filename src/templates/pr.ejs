@@ -644,11 +644,19 @@
             </div>
             <div class="comments-list">
               <%
-                // Merge and sort all comments, reviews, and review comments by date
+                // Merge and sort all comments, reviews, review comments, and timeline events by date
                 const allItems = [
                   ...issueComments.map(c => ({ type: 'comment', data: c, date: new Date(c.created_at) })),
-                  ...reviews.filter(r => r.body).map(r => ({ type: 'review', data: r, date: new Date(r.submitted_at) })),
-                  ...reviewComments.map(c => ({ type: 'review_comment', data: c, date: new Date(c.created_at) }))
+                  // Show all reviews, not just ones with bodies
+                  ...reviews.map(r => ({ type: 'review', data: r, date: new Date(r.submitted_at) })),
+                  ...reviewComments.map(c => ({ type: 'review_comment', data: c, date: new Date(c.created_at) })),
+                  // Filter for specific timeline events and exclude ones that are already in reviews
+                  ...timeline.filter(e => {
+                    // Skip 'reviewed' events as they're duplicates of the reviews we already have
+                    if (e.event === 'reviewed') return false;
+                    // Only include these specific event types
+                    return ['merged', 'closed', 'reopened', 'assigned', 'unassigned', 'review_requested', 'review_request_removed', 'labeled', 'unlabeled', 'milestoned', 'demilestoned'].includes(e.event);
+                  }).map(e => ({ type: 'timeline_event', data: e, date: new Date(e.created_at) }))
                 ].sort((a, b) => a.date - b.date);
               %>
               <% allItems.forEach(item => { %>
@@ -673,15 +681,15 @@
                     </div>
                   </details>
                 <% } else if (item.type === 'review') { %>
-                  <details class="review review-<%= item.data.state.toLowerCase() %>" open>
-                    <summary class="review-header">
-                      <span class="comment-author"><%= item.data.user.login %></span>
-                      <span class="review-state"><%= item.data.state.toLowerCase().replace('_', ' ') %></span>
-                      <time class="comment-time" datetime="<%= item.data.submitted_at %>">
-                        <%= new Date(item.data.submitted_at).toLocaleString() %>
-                      </time>
-                    </summary>
-                    <% if (item.data.body) { %>
+                  <% if (item.data.body) { %>
+                    <details class="review review-<%= item.data.state.toLowerCase() %>" open>
+                      <summary class="review-header">
+                        <span class="comment-author"><%= item.data.user.login %></span>
+                        <span class="review-state"><%= item.data.state.toLowerCase().replace('_', ' ') %></span>
+                        <time class="comment-time" datetime="<%= item.data.submitted_at %>">
+                          <%= new Date(item.data.submitted_at).toLocaleString() %>
+                        </time>
+                      </summary>
                       <div class="comment-body markdown-body">
                         <%- item.data.renderedBody %>
                       </div>
@@ -693,8 +701,19 @@
                           💬
                         </button>
                       </div>
-                    <% } %>
-                  </details>
+                    </details>
+                  <% } else { %>
+                    <%
+                      const reviewTextMap = { APPROVED: 'approved', CHANGES_REQUESTED: 'requested changes', COMMENTED: 'commented' };
+                      const reviewText = reviewTextMap[item.data.state] || 'reviewed';
+                    %>
+                    <div style="padding: 0.5rem 0; color: #666; font-size: 0.9rem;">
+                      <strong><%= item.data.user.login %></strong>
+                      <%= reviewText %>
+                      · <%= new Date(item.data.submitted_at).toLocaleString() %>
+                    </div>
+                  <% } %>
+
                 <% } else if (item.type === 'review_comment') { %>
                   <details class="comment review-comment" open>
                     <summary class="comment-header">
@@ -728,6 +747,33 @@
                       </button>
                     </div>
                   </details>
+                <% } else if (item.type === 'timeline_event') { %>
+                  <%
+                    const event = item.data;
+                    const getReviewerName = (e) => e.requested_reviewer?.login || e.requested_team?.name || 'someone';
+
+                    const eventTextMap = {
+                      merged: () => 'merged' + (event.commit_id ? ' ' + event.commit_id.substring(0, 7) : ''),
+                      closed: () => 'closed this',
+                      reopened: () => 'reopened this',
+                      assigned: () => 'assigned ' + (event.assignee?.login || 'someone'),
+                      unassigned: () => 'unassigned ' + (event.assignee?.login || 'someone'),
+                      review_requested: () => 'requested review from ' + getReviewerName(event),
+                      review_request_removed: () => 'removed review request for ' + getReviewerName(event),
+                      labeled: () => 'labeled ' + (event.label?.name || ''),
+                      unlabeled: () => 'unlabeled ' + (event.label?.name || ''),
+                      milestoned: () => 'milestoned ' + (event.milestone?.title || ''),
+                      demilestoned: () => 'demilestoned ' + (event.milestone?.title || ''),
+                    };
+
+                    const eventText = (eventTextMap[event.event] || (() => event.event))();
+                    const actorName = event.actor?.login || 'Someone';
+                  %>
+                  <div style="padding: 0.5rem 0; color: #666; font-size: 0.9rem;">
+                    <strong><%= actorName %></strong>
+                    <%= eventText %>
+                    · <%= new Date(event.created_at).toLocaleString() %>
+                  </div>
                 <% } %>
               <% }) %>
             </div>
@@ -895,8 +941,38 @@
 
     <!-- Right Sidebar -->
     <aside class="pr-right-sidebar">
+      <!-- Reviewers Section -->
+      <% if (pr.requested_reviewers && pr.requested_reviewers.length > 0) { %>
+        <div class="sidebar-section">
+          <h3>Reviewers</h3>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <% pr.requested_reviewers.forEach(reviewer => { %>
+              <div style="font-size: 0.9rem;"><%= reviewer.login %></div>
+            <% }) %>
+            <% if (pr.requested_teams && pr.requested_teams.length > 0) { %>
+              <% pr.requested_teams.forEach(team => { %>
+                <div style="font-size: 0.9rem;">👥 <%= team.name %></div>
+              <% }) %>
+            <% } %>
+          </div>
+        </div>
+      <% } %>
+
+      <!-- Assignees Section -->
+      <% if (pr.assignees && pr.assignees.length > 0) { %>
+        <div class="sidebar-section">
+          <h3>Assignees</h3>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <% pr.assignees.forEach(assignee => { %>
+              <div style="font-size: 0.9rem;"><%= assignee.login %></div>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
+
+      <!-- PR Details Section -->
       <div class="sidebar-section">
-        <h3>Reviewer Info</h3>
+        <h3>PR Details</h3>
         <div class="workflow-item">
           <span class="workflow-label">Head SHA:</span>
           <code class="sha-display" id="current-head-sha" title="<%= pr.head.sha %>">
