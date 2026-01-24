@@ -454,6 +454,17 @@
       color: #666;
     }
 
+    /* Vim navigation highlight */
+    .vim-selected {
+      background: #fff3cd !important;
+      border-left: 3px solid #856404 !important;
+      padding-left: 0.5rem !important;
+    }
+
+    .diff-file.vim-selected {
+      border: 2px solid #856404 !important;
+    }
+
     /* Collapsible comments */
     .comment > summary, .review > summary {
       cursor: pointer;
@@ -925,12 +936,12 @@
     // Tab switching
     document.querySelectorAll('.pr-tab').forEach(tab => {
       tab.addEventListener('click', (e) => {
-        const targetTab = e.target.dataset.tab;
+        const targetTab = e.currentTarget.dataset.tab;
         if (!targetTab) return;
 
         // Update active tab
         document.querySelectorAll('.pr-tab').forEach(t => t.classList.remove('active'));
-        e.target.classList.add('active');
+        e.currentTarget.classList.add('active');
 
         // Update active content
         document.querySelectorAll('.pr-tab-content').forEach(c => c.classList.remove('active'));
