@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/pr.css">
+  <style>
+    .compare-page { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+    .compare-header { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #ddd; }
+    .compare-header h1 { font-size: 1.25rem; font-family: monospace; }
+    .compare-meta { color: #666; font-size: 0.9rem; margin-top: 0.25rem; }
+
+    .compare-commits { margin-bottom: 1rem; }
+    .compare-commits summary { font-size: 0.9rem; cursor: pointer; padding: 0.25rem 0; }
+    .commit-entry { font-size: 0.85rem; padding: 0.25rem 0; font-family: monospace; }
+    .commit-entry .sha { color: #666; }
+    .commit-entry .author { color: #0066cc; }
+
+    .compare-diff pre {
+      margin: 0;
+      padding: 0.5rem;
+      font-size: 12px;
+      overflow-x: auto;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+    }
+    .compare-diff .line-add { color: #008800; background: #e6ffec; display: block; }
+    .compare-diff .line-del { color: #cc0000; background: #ffebe9; display: block; }
+    .compare-diff .line-hunk { color: #0066cc; background: #f0f8ff; display: block; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>">&larr; PR #<%= prNumber %></a>
+      <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>/commits">Commits</a>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="compare-page">
+    <div class="compare-header">
+      <h1><%= base.slice(0, 7) %>..<%= head.slice(0, 7) %></h1>
+      <div class="compare-meta">
+        <%= owner %>/<%= repo %> &middot;
+        <%= comparison.total_commits %> commit<%= comparison.total_commits !== 1 ? 's' : '' %> &middot;
+        <%= files.length %> file<%= files.length !== 1 ? 's' : '' %> changed
+      </div>
+    </div>
+
+    <% if (typeof commitMessage !== 'undefined') { %>
+    <div style="background: #f6f8fa; border: 1px solid #d1d5da; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
+      <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;"><%= commitMessage.split('\n')[0] %></div>
+      <% if (commitMessage.split('\n').length > 1) { %>
+        <div style="color: #666; font-size: 0.9rem; white-space: pre-wrap; margin-top: 0.5rem;"><%= commitMessage.split('\n').slice(1).join('\n').trim() %></div>
+      <% } %>
+      <div style="color: #666; font-size: 0.85rem; margin-top: 0.5rem;">
+        <strong><%= commitAuthor %></strong> committed
+        <code style="background: #fff; padding: 0.125rem 0.25rem; border-radius: 3px;"><%= head.slice(0, 7) %></code>
+      </div>
+    </div>
+    <% } else if (comparison.commits.length > 0) { %>
+    <details class="compare-commits">
+      <summary><%= comparison.commits.length %> commit<%= comparison.commits.length !== 1 ? 's' : '' %></summary>
+      <% comparison.commits.forEach(c => { %>
+        <div class="commit-entry">
+          <span class="sha"><%= c.sha.slice(0, 7) %></span>
+          <span class="author"><%= c.author ? c.author.login : 'unknown' %></span>
+          <%= c.commit.message.split('\n')[0].slice(0, 72) %>
+        </div>
+      <% }) %>
+    </details>
+    <% } %>
+
+    <div class="diff-container">
+      <% files.forEach((f, i) => { %>
+        <details class="diff-file">
+          <summary class="file-header">
+            <span>
+              <span class="status-badge <%= f.status === 'added' ? 'badge-added' : f.status === 'removed' ? 'badge-deleted' : 'badge-modified' %>">
+                <%= f.status === 'added' ? 'A' : f.status === 'removed' ? 'D' : 'M' %>
+              </span>
+              <%= f.path %>
+            </span>
+            <span>
+              <span class="file-stat additions">+<%= f.additions %></span>
+              <span class="file-stat deletions">-<%= f.deletions %></span>
+            </span>
+          </summary>
+          <% if (f.patch) { %>
+            <div class="compare-diff">
+              <pre><% f.patch.split('\n').forEach(line => {
+                if (line.startsWith('+') && !line.startsWith('+++')) { %><span class="line-add"><%= line %></span><%
+                } else if (line.startsWith('-') && !line.startsWith('---')) { %><span class="line-del"><%= line %></span><%
+                } else if (line.startsWith('@@')) { %><span class="line-hunk"><%= line %></span><%
+                } else { %><span><%= line %></span>
+<% }
+              }) %></pre>
+            </div>
+          <% } else { %>
+            <div class="diff-binary-notice">Binary file or no changes</div>
+          <% } %>
+        </details>
+      <% }) %>
+    </div>
+  </main>
+</body>
+</html>

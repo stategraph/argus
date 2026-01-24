@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .dashboard { max-width: 900px; margin: 0 auto; padding: 1rem; }
+    .dashboard-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    .dashboard-header h1 { margin: 0; }
+    .dashboard-stats { color: #666; }
+
+    .repo-section { margin-bottom: 1.5rem; }
+    .repo-header {
+      font-weight: 600;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .repo-name { color: #0066cc; text-decoration: none; }
+    .repo-name:hover { text-decoration: underline; }
+    .pr-count { color: #666; font-weight: normal; font-size: 0.9rem; }
+
+    .pr-list { margin: 0; padding: 0; list-style: none; }
+    .pr-item {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      gap: 0.75rem;
+      align-items: baseline;
+    }
+    .pr-item:last-child { border-bottom: none; }
+
+    .pr-number { color: #666; font-size: 0.9rem; min-width: 4em; }
+    .pr-link { flex: 1; }
+    .pr-title { color: #222; text-decoration: none; }
+    .pr-title:hover { color: #0066cc; text-decoration: underline; }
+    .pr-draft { color: #886600; font-size: 0.8rem; }
+    .pr-meta { color: #888; font-size: 0.85rem; white-space: nowrap; }
+
+    .empty-state { color: #666; text-align: center; padding: 3rem; }
+    .nav-links { display: flex; gap: 1rem; }
+
+    .search-box { margin-bottom: 1.5rem; }
+    .search-input { width: 100%; padding: 0.5rem 0.75rem; font-size: 1rem; }
+    .repo-section.hidden, .pr-item.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <div class="nav-links">
+        <a href="/repos">All Repos</a>
+      </div>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <div class="search-box">
+      <input type="text" id="search-input" class="search-input" placeholder="Filter by PR title or owner/repo#123 to jump" autofocus>
+    </div>
+
+    <div class="dashboard-header">
+      <h1>Open Pull Requests</h1>
+      <span class="dashboard-stats"><%= totalPRs %> PRs across <%= reposWithPRs.length %> repos</span>
+    </div>
+
+    <% if (reposWithPRs.length === 0) { %>
+      <p class="empty-state">No open pull requests found in your recent repositories.</p>
+    <% } %>
+
+    <% reposWithPRs.forEach(repo => { %>
+      <section class="repo-section">
+        <div class="repo-header">
+          <a href="/repos/<%= repo.owner %>/<%= repo.name %>/pulls" class="repo-name"><%= repo.fullName %></a>
+          <span class="pr-count"><%= repo.pulls.length %> open</span>
+        </div>
+        <ul class="pr-list">
+          <% repo.pulls.forEach(pr => { %>
+            <li class="pr-item">
+              <span class="pr-number">#<%= pr.number %></span>
+              <span class="pr-link">
+                <a href="/pr/<%= repo.owner %>/<%= repo.name %>/<%= pr.number %>" class="pr-title"><%= pr.title %></a>
+                <% if (pr.draft) { %><span class="pr-draft">(draft)</span><% } %>
+              </span>
+              <span class="pr-meta"><%= pr.author %></span>
+            </li>
+          <% }) %>
+        </ul>
+      </section>
+    <% }) %>
+  </main>
+
+  <script>
+    const input = document.getElementById('search-input');
+    const sections = document.querySelectorAll('.repo-section');
+
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+
+      // Direct navigation: owner/repo#123 or owner/repo/123
+      const prMatch = q.match(/^([^/]+)\/([^#/]+)[#/](\d+)$/);
+      if (prMatch) {
+        // Show hint or navigate on Enter
+        return;
+      }
+
+      // Filter PRs by title
+      sections.forEach(section => {
+        const items = section.querySelectorAll('.pr-item');
+        let visibleCount = 0;
+
+        items.forEach(item => {
+          const title = item.querySelector('.pr-title').textContent.toLowerCase();
+          const matches = !q || title.includes(q);
+          item.classList.toggle('hidden', !matches);
+          if (matches) visibleCount++;
+        });
+
+        section.classList.toggle('hidden', visibleCount === 0);
+      });
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+
+      const q = input.value.trim();
+
+      // Direct navigation: owner/repo#123 or owner/repo/123
+      const prMatch = q.match(/^([^/]+)\/([^#/]+)[#/](\d+)$/);
+      if (prMatch) {
+        const [, owner, repo, number] = prMatch;
+        location.href = `/pr/${owner}/${repo}/${number}`;
+        return;
+      }
+
+      // Direct navigation: owner/repo
+      const repoMatch = q.match(/^([^/]+)\/([^/]+)$/);
+      if (repoMatch) {
+        const [, owner, repo] = repoMatch;
+        location.href = `/repos/${owner}/${repo}/pulls`;
+      }
+    });
+  </script>
+</body>
+</html>

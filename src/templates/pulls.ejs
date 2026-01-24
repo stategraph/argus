@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .pulls-page { max-width: 900px; margin: 0 auto; padding: 1rem; }
+
+    .pulls-header { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #ddd; }
+    .pulls-header h1 { font-size: 1.25rem; margin: 0; }
+    .pulls-header h1 a { color: #222; text-decoration: none; }
+    .pulls-header h1 a:hover { color: #0066cc; }
+
+    .pulls-filters { margin-bottom: 1rem; display: flex; gap: 0.5rem; }
+    .filter-link { padding: 0.25rem 0.75rem; color: #666; text-decoration: none; border: 1px solid #ddd; border-radius: 3px; font-size: 0.9rem; }
+    .filter-link:hover { background: #f5f5f5; text-decoration: none; }
+    .filter-link.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+
+    .pulls-list { margin: 0; padding: 0; list-style: none; }
+    .pull-item { border-bottom: 1px solid #eee; }
+    .pull-item:last-child { border-bottom: none; }
+
+    .pull-link { display: block; padding: 0.625rem 0; text-decoration: none; color: inherit; }
+    .pull-link:hover { background: #f9f9f9; }
+    .pull-link:hover .pull-title { color: #0066cc; }
+
+    .pull-row { display: flex; gap: 0.75rem; align-items: baseline; }
+    .pull-number { color: #666; font-size: 0.9rem; min-width: 4em; }
+    .pull-title { flex: 1; color: #222; }
+    .pull-draft { color: #886600; font-size: 0.8rem; }
+    .pull-author { color: #888; font-size: 0.85rem; white-space: nowrap; }
+
+    .empty-state { color: #666; text-align: center; padding: 3rem; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="pulls-page">
+    <div class="pulls-header">
+      <h1><a href="/repos/<%= owner %>/<%= repo %>/pulls"><%= owner %>/<%= repo %></a></h1>
+    </div>
+
+    <div class="pulls-filters">
+      <a href="/repos/<%= owner %>/<%= repo %>/pulls?state=open" class="filter-link <%= state === 'open' ? 'active' : '' %>">Open</a>
+      <a href="/repos/<%= owner %>/<%= repo %>/pulls?state=closed" class="filter-link <%= state === 'closed' ? 'active' : '' %>">Closed</a>
+      <a href="/repos/<%= owner %>/<%= repo %>/pulls?state=all" class="filter-link <%= state === 'all' ? 'active' : '' %>">All</a>
+    </div>
+
+    <% if (pulls.length === 0) { %>
+      <p class="empty-state">No pull requests found.</p>
+    <% } else { %>
+      <ul class="pulls-list">
+        <% pulls.forEach(pr => { %>
+          <li class="pull-item">
+            <a href="/pr/<%= owner %>/<%= repo %>/<%= pr.number %>" class="pull-link">
+              <div class="pull-row">
+                <span class="pull-number">#<%= pr.number %></span>
+                <span class="pull-title"><%= pr.title %></span>
+                <% if (pr.draft) { %><span class="pull-draft">(draft)</span><% } %>
+                <span class="pull-author"><%= pr.user.login %></span>
+              </div>
+            </a>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </main>
+</body>
+</html>

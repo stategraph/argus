@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <% if (typeof extraCss !== 'undefined' && extraCss) { %>
+    <link rel="stylesheet" href="/static/css/<%= extraCss %>">
+  <% } %>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/" class="nav-logo">Argus</a>
+      <% if (typeof user !== 'undefined' && user) { %>
+        <span class="nav-user"><%= user.login %></span>
+      <% } %>
+    </nav>
+  </header>
+
+  <main class="main-content">
+    <%- body %>
+  </main>
+
+  <% if (typeof extraJs !== 'undefined' && extraJs) { %>
+    <script src="/static/js/<%= extraJs %>"></script>
+  <% } %>
+</body>
+</html>

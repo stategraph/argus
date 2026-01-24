@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .range-diff-page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    .breadcrumb {
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+      color: #666;
+    }
+
+    .breadcrumb a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+
+    .breadcrumb a:hover {
+      text-decoration: underline;
+    }
+
+    .range-diff-header {
+      background: #f6f8fa;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .range-diff-header h1 {
+      font-size: 1.25rem;
+      margin: 0 0 0.75rem;
+    }
+
+    .revision-info {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+
+    .revision-label {
+      font-weight: 600;
+      color: #666;
+    }
+
+    .revision-value {
+      font-family: monospace;
+      color: #222;
+    }
+
+    .revision-time {
+      color: #888;
+      font-size: 0.85rem;
+    }
+
+    .info-box {
+      background: #fffbf0;
+      border: 1px solid #f0e68c;
+      border-radius: 6px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .info-box h2 {
+      font-size: 1rem;
+      margin: 0 0 0.5rem;
+      color: #666;
+    }
+
+    .info-box p {
+      margin: 0.25rem 0;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #444;
+    }
+
+    .range-diff-output {
+      background: #f6f8fa;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+    }
+
+    .range-diff-output pre {
+      margin: 0;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .range-diff-output .line-added {
+      color: #22863a;
+    }
+
+    .range-diff-output .line-removed {
+      color: #cb2431;
+    }
+
+    .range-diff-output .line-modified {
+      color: #005cc5;
+    }
+
+    .no-changes {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #666;
+      font-size: 1rem;
+    }
+
+    .no-changes-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .fallback-link {
+      margin-top: 1rem;
+      text-align: center;
+    }
+
+    .fallback-link a {
+      color: #0066cc;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .fallback-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>">&larr; PR #<%= prNumber %></a>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="range-diff-page">
+    <div class="breadcrumb">
+      <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>">PR #<%= prNumber %></a> /
+      <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>/commits">Commits</a> /
+      Range-diff
+    </div>
+
+    <div class="range-diff-header">
+      <h1>Range-diff: Revision <%= fromRev.id %> → <%= toRev.id %></h1>
+      <div class="revision-info">
+        <span class="revision-label">Old revision:</span>
+        <span class="revision-value">
+          <%= fromRev.head_sha.slice(0, 7) %>
+          <span class="revision-time">(<%= new Date(fromRev.seen_at).toLocaleString() %>)</span>
+        </span>
+
+        <span class="revision-label">New revision:</span>
+        <span class="revision-value">
+          <%= toRev.head_sha.slice(0, 7) %>
+          <span class="revision-time">(<%= new Date(toRev.seen_at).toLocaleString() %>)</span>
+        </span>
+
+        <span class="revision-label">Old base:</span>
+        <span class="revision-value"><%= fromRev.merge_base_sha.slice(0, 7) %></span>
+
+        <span class="revision-label">New base:</span>
+        <span class="revision-value"><%= toRev.merge_base_sha.slice(0, 7) %></span>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <h2>What is range-diff?</h2>
+      <p>
+        Range-diff shows what changed in the <em>patch series</em> between two revisions, not just the net code changes.
+        This is especially useful after a force-push (rebase, amend, etc.) to see:
+      </p>
+      <p>
+        • Which commits were modified, added, or removed<br>
+        • What changed within individual commit patches<br>
+        • How commit messages were updated
+      </p>
+      <p>
+        Unlike a regular diff (which shows net changes), range-diff helps you understand
+        <em>how the work evolved</em> across the rebase/amend.
+      </p>
+    </div>
+
+    <% if (rangeDiff.hasChanges) { %>
+      <div class="range-diff-output">
+        <pre><%= rangeDiff.output %></pre>
+      </div>
+    <% } else { %>
+      <div class="no-changes">
+        <div class="no-changes-icon">✓</div>
+        <div>No differences in patch series</div>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+          The commits are identical between these two revisions.
+        </p>
+      </div>
+    <% } %>
+
+    <div class="fallback-link">
+      <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>/compare/<%= fromRev.head_sha %>/<%= toRev.head_sha %>">
+        View net diff instead (GitHub-style compare)
+      </a>
+    </div>
+  </main>
+</body>
+</html>

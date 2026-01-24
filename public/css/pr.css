@@ -1,0 +1,150 @@
+/* PR Page - Clean minimal */
+
+.pr-layout {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.pr-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.pr-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Sidebar */
+.sidebar-section { margin-bottom: 1.25rem; }
+.sidebar-section h3 { font-size: 0.8rem; color: #666; margin-bottom: 0.25rem; text-transform: uppercase; }
+
+.workflow-item { display: flex; justify-content: space-between; margin: 0.125rem 0; }
+
+.file-sidebar-list { max-height: 300px; overflow-y: auto; }
+.file-sidebar-item { display: block; padding: 0.125rem 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-sidebar-item.active { font-weight: 600; }
+
+/* PR Header */
+.pr-header { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #ddd; }
+.pr-title { font-size: 1.25rem; }
+.pr-number { color: #666; font-weight: normal; }
+.pr-meta { color: #666; font-size: 0.9rem; margin-top: 0.25rem; }
+.pr-author { font-weight: 500; color: #222; }
+.pr-stats { margin-top: 0.5rem; font-size: 0.9rem; }
+
+/* Checks */
+.checks-summary { font-size: 0.9rem; }
+.checks-passed { color: #008800; }
+.checks-failed { color: #cc0000; }
+.checks-pending { color: #886600; }
+.checks-list { list-style: none; padding: 0; margin-top: 0.25rem; }
+.check-item { padding: 0.125rem 0; }
+
+/* Diff files */
+.diff-container { margin-top: 1rem; }
+.diff-file { margin-bottom: 0.5rem; border: 1px solid #ddd; }
+
+.file-header {
+  padding: 0.375rem 0.5rem;
+  background: #f9f9f9;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  list-style: none;
+  font-size: 0.9rem;
+}
+.file-header::-webkit-details-marker { display: none; }
+
+.file-stat.additions { color: #008800; }
+.file-stat.deletions { color: #cc0000; }
+
+.status-badge { font-size: 0.75rem; font-weight: 600; margin-right: 0.5em; padding: 0.125em 0.375em; border-radius: 3px; }
+.badge-added { background: #e6ffec; color: #006600; }
+.badge-deleted { background: #ffebe9; color: #990000; }
+.badge-modified { background: #fff8e6; color: #664400; }
+.badge-renamed { background: #e6f4ff; color: #004488; }
+
+/* Diff table */
+.diff-table {
+  width: 100%;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 12px;
+  border-collapse: collapse;
+}
+
+.diff-line-num {
+  width: 45px;
+  text-align: right;
+  padding: 0 8px;
+  color: #999;
+  background: #f9f9f9;
+  border-right: 1px solid #ddd;
+  user-select: none;
+}
+
+.diff-line-action { width: 20px; text-align: center; background: #f9f9f9; }
+.line-comment-btn { display: none; color: #0066cc; text-decoration: none; font-size: 14px; }
+.diff-line:hover .line-comment-btn { display: inline; }
+
+.diff-line-content { padding: 0 8px; white-space: pre-wrap; word-wrap: break-word; }
+.diff-line-prefix { color: #999; }
+
+.diff-line-add { background: #e6ffec; }
+.diff-line-add .diff-line-num, .diff-line-add .diff-line-action { background: #ccffd8; }
+.diff-line-del { background: #ffebe9; }
+.diff-line-del .diff-line-num, .diff-line-del .diff-line-action { background: #ffd7d5; }
+
+.diff-hunk-header { background: #f0f8ff; }
+.diff-hunk-header td { padding: 4px 8px; color: #0066cc; }
+
+/* Inline comment form */
+.inline-comment-form-row { display: none; }
+.inline-comment-form-row:target,
+.inline-comment-form-row.visible { display: table-row; }
+.inline-comment-form-row td { padding: 0.75rem; background: #f5f5f5; }
+.inline-comment-form { max-width: 600px; }
+.comment-form-header { color: #666; font-size: 0.85rem; margin-bottom: 0.5rem; }
+.comment-form-close { color: #cc0000; margin-left: 1rem; }
+.inline-comment-form-js { display: table-row; }
+
+/* Comments */
+.comments-list { margin-top: 0.5rem; }
+.comment, .review { margin-bottom: 0.75rem; padding: 0.5rem; background: #f9f9f9; border: 1px solid #eee; }
+.comment-header, .review-header { color: #666; font-size: 0.85rem; margin-bottom: 0.25rem; }
+.comment-author { color: #0066cc; font-weight: 500; }
+.review-approved .review-state { color: #008800; }
+.review-changes_requested .review-state { color: #cc0000; }
+
+/* File comments */
+.file-comments { background: #f9f9f9; border-top: 1px solid #ddd; }
+.file-comments-header { padding: 0.375rem 0.5rem; cursor: pointer; list-style: none; font-size: 0.85rem; }
+.file-comments-header::-webkit-details-marker { display: none; }
+.inline-comment { padding: 0.5rem; border-bottom: 1px solid #eee; }
+.inline-comment-header { color: #666; font-size: 0.85rem; }
+.comment-line { color: #664400; }
+
+/* Forms */
+.pr-comment-form, .pr-review-form { margin: 1rem 0; padding: 0.75rem; background: #f9f9f9; border: 1px solid #ddd; }
+.review-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Notices */
+.truncated-notice { padding: 0.375rem 0.5rem; background: #fff8e6; color: #664400; font-size: 0.85rem; }
+.load-full-diff { color: #0066cc; background: none; border: none; cursor: pointer; text-decoration: underline; }
+.updates-banner { padding: 0.375rem 1rem; background: #fff8e6; border-bottom: 1px solid #ddd; }
+.dismiss-btn { color: #666; background: none; border: none; cursor: pointer; margin-left: 1rem; }
+
+/* Keyboard help */
+.keyboard-help h3 { margin-bottom: 0.5rem; }
+.keyboard-shortcuts { font-size: 0.8rem; margin: 0; }
+.keyboard-shortcut { display: flex; justify-content: space-between; padding: 0.125rem 0; }
+.keyboard-shortcut kbd { font-family: 'SF Mono', Consolas, monospace; font-size: 0.75rem; background: #eee; padding: 0.125em 0.375em; border-radius: 2px; border: 1px solid #ddd; min-width: 2em; text-align: center; }
+.keyboard-shortcut span { color: #666; }
+
+.diff-binary-notice, .diff-empty-notice { padding: 1rem; color: #666; text-align: center; }
+
+@media (max-width: 768px) {
+  .pr-layout { flex-direction: column; }
+  .pr-sidebar { width: 100%; }
+}

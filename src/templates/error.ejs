@@ -1,0 +1,7 @@
+<%- include('layout', { body: `
+  <div class="error-page">
+    <h1>Error</h1>
+    <p class="error-message">${message}</p>
+    <a href="/" class="btn">Go Home</a>
+  </div>
+`, title: title, user: typeof user !== 'undefined' ? user : null }) %>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .repos-page { max-width: 900px; margin: 0 auto; padding: 1rem; }
+
+    .repos-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    .repos-header h1 { margin: 0; font-size: 1.5rem; }
+    .repos-count { color: #666; font-size: 0.9rem; }
+
+    .search-box { margin-bottom: 1.5rem; }
+    .search-input {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      font-size: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: #0066cc;
+    }
+
+    .repos-list { margin: 0; padding: 0; list-style: none; }
+    .repo-item { border-bottom: 1px solid #eee; }
+    .repo-item:last-child { border-bottom: none; }
+    .repo-item.hidden { display: none; }
+
+    .repo-link {
+      display: block;
+      padding: 0.875rem 0;
+      text-decoration: none;
+      color: inherit;
+      transition: background-color 0.15s;
+    }
+    .repo-link:hover {
+      background: #f6f8fa;
+    }
+
+    .repo-header-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .repo-name {
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: #0066cc;
+    }
+
+    .badge {
+      padding: 0.125rem 0.5rem;
+      font-size: 0.75rem;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+    .badge-private {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .repo-description {
+      margin: 0.375rem 0 0.5rem;
+      color: #666;
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .repo-meta {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      color: #888;
+    }
+
+    .repo-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: #666;
+    }
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    .empty-state-text {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+    .empty-state-hint {
+      font-size: 0.9rem;
+      color: #888;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+    }
+    .nav-links a {
+      color: #666;
+      text-decoration: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+    }
+    .nav-links a:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <div class="nav-links">
+        <a href="/dashboard">Dashboard</a>
+      </div>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="repos-page">
+    <div class="repos-header">
+      <h1>Repositories</h1>
+      <span class="repos-count"><%= repos.length %> repos</span>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="search-input" class="search-input" placeholder="Filter repositories..." autofocus>
+    </div>
+
+    <% if (repos.length === 0) { %>
+      <div class="empty-state">
+        <div class="empty-state-icon">📦</div>
+        <div class="empty-state-text">No repositories found</div>
+        <div class="empty-state-hint">Make sure your GitHub token has access to the repositories you want to review.</div>
+      </div>
+    <% } else { %>
+      <ul class="repos-list">
+        <% repos.forEach(repo => { %>
+          <li class="repo-item" data-repo-name="<%= repo.fullName.toLowerCase() %>" data-description="<%= (repo.description || '').toLowerCase() %>">
+            <a href="/repos/<%= repo.owner %>/<%= repo.name %>/pulls" class="repo-link">
+              <div class="repo-header-row">
+                <span class="repo-name"><%= repo.fullName %></span>
+                <% if (repo.private) { %>
+                  <span class="badge badge-private">Private</span>
+                <% } %>
+              </div>
+              <% if (repo.description) { %>
+                <p class="repo-description"><%= repo.description %></p>
+              <% } %>
+              <div class="repo-meta">
+                <span class="repo-meta-item">
+                  <span>📋</span>
+                  <span><%= repo.openIssuesCount %> open</span>
+                </span>
+                <span class="repo-meta-item">
+                  <span>📅</span>
+                  <span>Updated <%= new Date(repo.updatedAt).toLocaleDateString() %></span>
+                </span>
+              </div>
+            </a>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </main>
+
+  <script>
+    const input = document.getElementById('search-input');
+    const items = document.querySelectorAll('.repo-item');
+
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+
+      items.forEach(item => {
+        const name = item.dataset.repoName || '';
+        const desc = item.dataset.description || '';
+        const matches = !q || name.includes(q) || desc.includes(q);
+        item.classList.toggle('hidden', !matches);
+      });
+    });
+
+    // Support direct navigation: owner/repo
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+
+      const q = input.value.trim();
+      const repoMatch = q.match(/^([^/]+)\/([^/]+)$/);
+      if (repoMatch) {
+        const [, owner, repo] = repoMatch;
+        location.href = `/repos/${owner}/${repo}/pulls`;
+      }
+    });
+  </script>
+</body>
+</html>

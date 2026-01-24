@@ -1,0 +1,109 @@
+/* Clean minimal CSS */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #fff;
+  color: #222;
+}
+
+body { min-height: 100vh; }
+
+a { color: #0066cc; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3 { font-weight: 600; margin: 1em 0 0.5em; }
+h1 { font-size: 1.25rem; }
+h2 { font-size: 1rem; color: #444; }
+
+p { margin: 0.5em 0; }
+
+code, pre {
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 0.9em;
+}
+
+/* Header */
+.site-header {
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+  padding: 0.5rem 1rem;
+}
+
+.nav-container {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-logo {
+  font-weight: 700;
+  color: #222;
+  text-decoration: none;
+}
+
+.nav-user { margin-left: auto; color: #666; }
+
+/* Main */
+.main-content {
+  padding: 1rem;
+  max-width: 100ch;
+}
+
+/* Forms */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  background: #fff;
+  color: #222;
+  border: 1px solid #ccc;
+  padding: 0.375rem 0.5rem;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: #0066cc;
+}
+
+button, .btn {
+  font-family: inherit;
+  font-size: inherit;
+  background: #f5f5f5;
+  color: #222;
+  border: 1px solid #ccc;
+  padding: 0.375rem 0.75rem;
+  cursor: pointer;
+}
+
+button:hover, .btn:hover { background: #e5e5e5; }
+.btn-primary { background: #0066cc; color: #fff; border-color: #0066cc; }
+.btn-primary:hover { background: #0055aa; }
+.btn-danger { background: #cc0000; color: #fff; border-color: #cc0000; }
+.btn-success { background: #008800; color: #fff; border-color: #008800; }
+
+/* Tables */
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 0.25rem 0.5rem; border-bottom: 1px solid #eee; }
+th { font-weight: 600; color: #666; }
+
+/* Lists */
+ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
+
+/* Details/summary */
+details { margin: 0.5em 0; }
+summary { cursor: pointer; color: #0066cc; }
+summary:hover { text-decoration: underline; }
+
+/* Form actions */
+.form-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; }
+
+/* Textarea */
+.comment-textarea { width: 100%; min-height: 4em; resize: vertical; }
+
+/* Hidden */
+.hidden { display: none !important; }
+
+/* Status */
+.additions { color: #008800; }
+.deletions { color: #cc0000; }

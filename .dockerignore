@@ -1,0 +1,14 @@
+node_modules
+dist
+data
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+.git
+.gitignore
+*.md
+coverage
+.vscode
+.idea

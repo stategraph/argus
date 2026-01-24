@@ -1,0 +1,28 @@
+<%- include('layout', { body: `
+  <div class="landing">
+    <div class="landing-hero">
+      <h1>Argus</h1>
+      <p class="landing-tagline">A faster, more usable GitHub PR review experience</p>
+      <a href="/auth/login" class="btn btn-primary btn-large">Sign in with GitHub</a>
+    </div>
+
+    <div class="landing-features">
+      <div class="feature">
+        <h3>Server-Rendered</h3>
+        <p>Fast initial load with server-side rendering. Works without JavaScript.</p>
+      </div>
+      <div class="feature">
+        <h3>Keyboard Navigation</h3>
+        <p>Navigate files with j/k, toggle with o, comment with c.</p>
+      </div>
+      <div class="feature">
+        <h3>Lightweight Polling</h3>
+        <p>Know when a PR updates without constant refreshing.</p>
+      </div>
+      <div class="feature">
+        <h3>Focus on Review</h3>
+        <p>Clean interface designed for understanding changes.</p>
+      </div>
+    </div>
+  </div>
+`, title: title, user: null }) %>

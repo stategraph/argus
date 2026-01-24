@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .confirm-container {
+      max-width: 700px;
+      margin: 3rem auto;
+      padding: 2rem;
+      border: 1px solid #ddd;
+    }
+
+    .confirm-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .confirm-header h1 {
+      font-size: 1.25rem;
+      margin: 0 0 0.5rem;
+    }
+
+    .confirm-header p {
+      color: #666;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .confirm-info {
+      background: #f6f8fa;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      border-left: 3px solid #0066cc;
+    }
+
+    .confirm-info h2 {
+      font-size: 0.95rem;
+      margin: 0 0 0.5rem;
+      color: #0066cc;
+    }
+
+    .confirm-info p {
+      margin: 0.5rem 0;
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .confirm-warning {
+      background: #fff3cd;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      border-left: 3px solid #856404;
+    }
+
+    .confirm-warning h2 {
+      font-size: 0.95rem;
+      margin: 0 0 0.5rem;
+      color: #856404;
+    }
+
+    .confirm-warning p {
+      margin: 0.5rem 0;
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .confirm-revisions {
+      margin-bottom: 1.5rem;
+    }
+
+    .confirm-revisions h3 {
+      font-size: 0.9rem;
+      margin: 0 0 0.5rem;
+      color: #666;
+    }
+
+    .revision-info {
+      font-family: monospace;
+      font-size: 0.85rem;
+      padding: 0.5rem;
+      background: #f6f8fa;
+      margin-bottom: 0.5rem;
+    }
+
+    .confirm-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .confirm-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    .confirm-checkbox input {
+      cursor: pointer;
+    }
+
+    .confirm-buttons {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn-proceed {
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-proceed:hover {
+      background: #0052a3;
+    }
+
+    .btn-cancel {
+      background: #666;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-cancel:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>">&larr; PR #<%= prNumber %></a>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="confirm-container">
+    <div class="confirm-header">
+      <h1>Range-diff requires git clone</h1>
+      <p>Comparing <%= fromRev.head_sha.slice(0, 7) %> → <%= toRev.head_sha.slice(0, 7) %></p>
+    </div>
+
+    <div class="confirm-warning">
+      <h2>⚠️ This operation is slow</h2>
+      <p>Computing range-diff requires cloning the repository locally to /tmp/argus-git-cache.</p>
+      <p><strong>First time:</strong> May take 10-30 seconds depending on repository size and network speed.</p>
+      <p><strong>Subsequent uses:</strong> Fast (merge-base cached in database).</p>
+    </div>
+
+    <div class="confirm-info">
+      <h2>What is range-diff?</h2>
+      <p>Range-diff shows what changed in the <em>patch series</em> between force-pushes, not just the net code diff.</p>
+      <p>It's useful for understanding how commits were rewritten during a rebase or amend.</p>
+    </div>
+
+    <div class="confirm-revisions">
+      <h3>Comparing revisions:</h3>
+      <div class="revision-info">
+        From: <%= fromRev.head_sha.slice(0, 7) %> (<%= new Date(fromRev.seen_at).toLocaleString() %>)
+      </div>
+      <div class="revision-info">
+        To: <%= toRev.head_sha.slice(0, 7) %> (<%= new Date(toRev.seen_at).toLocaleString() %>)
+      </div>
+    </div>
+
+    <form method="POST" action="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>/range-diff/<%= fromRev.id %>/<%= toRev.id %>/confirm" class="confirm-actions">
+      <label class="confirm-checkbox">
+        <input type="checkbox" name="dont_ask_again" value="1">
+        Don't ask me again for this repository
+      </label>
+      <div class="confirm-buttons">
+        <button type="submit" class="btn-proceed">
+          Proceed (clone repo & compute)
+        </button>
+        <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>/commits" class="btn-cancel">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/pr.css">
+  <link rel="stylesheet" href="/static/css/github-markdown-light.css">
+  <style>
+    /* Minimal layout */
+    .pr-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem;
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 2rem;
+    }
+
+    .pr-main-content {
+      min-width: 0;
+    }
+
+    .pr-right-sidebar {
+      position: sticky;
+      top: 1rem;
+      align-self: start;
+    }
+
+    /* PR Header */
+    .pr-header {
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #ddd;
+      position: relative;
+    }
+
+    .pr-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      padding-right: 120px;
+    }
+
+    .pr-number {
+      color: #666;
+      font-weight: normal;
+    }
+
+    .pr-meta {
+      color: #666;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pr-state {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      font-weight: 500;
+      font-size: 0.8rem;
+      margin-right: 0.5rem;
+    }
+
+    .pr-state-open { color: #2da44e; }
+    .pr-state-closed { color: #cf222e; }
+    .pr-state-merged { color: #8250df; }
+
+    .badge-draft {
+      color: #666;
+      font-size: 0.8rem;
+      margin-right: 0.5rem;
+    }
+
+    .ref {
+      background: #f6f8fa;
+      padding: 0.125rem 0.375rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+
+    .pr-stats {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .stat { color: #666; }
+    .additions { color: #2da44e; }
+    .deletions { color: #cf222e; }
+
+    /* Review button top right */
+    .review-button-container {
+      position: absolute;
+      top: 0;
+      right: 0;
+    }
+
+    .btn-review-toggle {
+      background: #2da44e;
+      color: white;
+      border: none;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .btn-review-toggle:hover {
+      background: #2c974b;
+    }
+
+    /* Tabs */
+    .pr-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 1rem;
+    }
+
+    .pr-tab {
+      padding: 0.5rem 0.75rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #666;
+      border-bottom: 2px solid transparent;
+    }
+
+    .pr-tab:hover {
+      color: #222;
+    }
+
+    .pr-tab.active {
+      color: #222;
+      font-weight: 600;
+      border-bottom-color: #0066cc;
+    }
+
+    .pr-tab-content {
+      display: none;
+    }
+
+    .pr-tab-content.active {
+      display: block;
+    }
+
+    /* Right Sidebar */
+    .sidebar-section {
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .sidebar-section h3 {
+      margin: 0 0 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #666;
+    }
+
+    .workflow-item {
+      margin-bottom: 0.375rem;
+      font-size: 0.85rem;
+    }
+
+    .workflow-label {
+      color: #666;
+      display: inline-block;
+      min-width: 60px;
+    }
+
+    .sha-display {
+      font-family: monospace;
+      background: #f6f8fa;
+      padding: 0.125rem 0.375rem;
+      font-size: 0.85rem;
+    }
+
+    .btn-small {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.85rem;
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+
+    /* Checks in sidebar */
+    .checks-summary {
+      padding: 0.375rem;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .checks-success { color: #1a7f37; }
+    .checks-failure { color: #cf222e; }
+    .checks-pending { color: #856404; }
+
+    .checks-details {
+      font-size: 0.85rem;
+    }
+
+    .checks-toggle {
+      cursor: pointer;
+      color: #0969da;
+      padding: 0.25rem 0;
+    }
+
+    .checks-toggle:hover {
+      text-decoration: underline;
+    }
+
+    .checks-list {
+      list-style: none;
+      padding: 0;
+      margin: 0.5rem 0 0;
+    }
+
+    .check-item {
+      padding: 0.375rem 0;
+      border-top: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .check-icon {
+      min-width: 1.25rem;
+      text-align: center;
+    }
+
+    .check-name {
+      flex: 1;
+      color: #0969da;
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .check-name:hover {
+      text-decoration: underline;
+    }
+
+    /* Conversation content */
+    .pr-description {
+      margin-bottom: 1rem;
+    }
+
+    .pr-description summary {
+      cursor: pointer;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #ddd;
+      font-weight: 600;
+    }
+
+    .pr-description summary h2 {
+      display: inline;
+      font-size: 0.95rem;
+      margin: 0;
+    }
+
+    .pr-description .markdown-body {
+      padding: 0.75rem 0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .pr-conversation {
+      margin-bottom: 1rem;
+    }
+
+    .pr-conversation summary {
+      cursor: pointer;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #ddd;
+      font-weight: 600;
+      list-style: none;
+      user-select: none;
+    }
+
+    .pr-conversation summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .pr-conversation summary h2 {
+      display: inline;
+      font-size: 0.95rem;
+      margin: 0;
+    }
+
+    .pr-conversation summary h2::before {
+      content: '';
+      display: inline-block;
+      width: 0;
+      height: 0;
+      border-left: 5px solid #666;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      margin-right: 0.5rem;
+      transition: transform 0.2s;
+    }
+
+    .pr-conversation[open] summary h2::before {
+      transform: rotate(90deg);
+      position: static;
+    }
+
+    .comments-list {
+      padding: 0.5rem 0;
+    }
+
+    .comment, .review {
+      border-bottom: 1px solid #eee;
+      padding: 0.5rem 0;
+    }
+
+    .comment:last-child, .review:last-child {
+      border-bottom: none;
+    }
+
+    .comment-header, .review-header {
+      margin-bottom: 0.25rem;
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .comment-author {
+      font-weight: 600;
+      color: #222;
+      margin-right: 0.5rem;
+    }
+
+    .review-state {
+      text-transform: capitalize;
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+
+    .review-approved .review-state { color: #2da44e; }
+    .review-changes_requested .review-state { color: #cf222e; }
+    .review-commented .review-state { color: #666; }
+
+    .pr-comment-form, .pr-review-form {
+      border: 1px solid #ddd;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .pr-review-form {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 600px;
+      width: 90%;
+      background: white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1000;
+    }
+
+    .pr-review-form.active {
+      display: block;
+    }
+
+    .review-form-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+
+    .review-form-overlay.active {
+      display: block;
+    }
+
+    .pr-comment-form h2, .pr-review-form h2 {
+      font-size: 0.95rem;
+      margin: 0 0 0.5rem;
+    }
+
+    .comment-textarea {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      font-family: inherit;
+      font-size: 0.9rem;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+
+    .form-actions {
+      margin-top: 0.75rem;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+
+    /* Files Changed content */
+    .pr-files h2 {
+      font-size: 1.1rem;
+      margin: 0 0 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #ddd;
+    }
+
+    /* Commits content */
+    .commits-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .commit-item {
+      border-bottom: 1px solid #eee;
+      padding: 0.5rem 0;
+    }
+
+    .commit-item:last-child {
+      border-bottom: none;
+    }
+
+    .commit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.25rem;
+    }
+
+    .commit-message {
+      font-weight: normal;
+      color: #222;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .commit-sha {
+      font-family: monospace;
+      color: #0969da;
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+
+    .commit-sha:hover {
+      text-decoration: underline;
+    }
+
+    .commit-author {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    /* Collapsible comments */
+    .comment > summary, .review > summary {
+      cursor: pointer;
+      padding: 0.5rem 0;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      user-select: none;
+    }
+
+    .comment > summary::-webkit-details-marker,
+    .review > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .comment > summary::before,
+    .review > summary::before {
+      content: '▶';
+      font-size: 0.6rem;
+      transition: transform 0.2s;
+    }
+
+    .comment[open] > summary::before,
+    .review[open] > summary::before {
+      transform: rotate(90deg);
+    }
+
+    .comment-body {
+      padding: 0.5rem 0 0.5rem 1rem;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
+      font-size: 0.9rem;
+    }
+
+    .comment-body * {
+      max-width: 100%;
+    }
+
+    .comment-body p, .comment-body li, .comment-body div {
+      font-size: 0.9rem;
+    }
+
+    .markdown-body {
+      font-size: 0.9rem;
+    }
+
+    .markdown-body p, .markdown-body li, .markdown-body div {
+      font-size: 0.9rem;
+    }
+
+    /* Diff hunk in conversation */
+    .diff-hunk-simple {
+      background: #f6f8fa;
+      border: 1px solid #ddd;
+    }
+
+    .diff-hunk-simple .diff-table {
+      width: 100%;
+      font-size: 0.75rem;
+    }
+
+    /* Task list checkboxes */
+    .task-list-item {
+      list-style: none;
+    }
+
+    .task-list-item input[type="checkbox"] {
+      margin-right: 0.5rem;
+      cursor: pointer;
+    }
+
+    /* Conversation controls */
+    .conversation-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin: 0.5rem 0;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .conversation-controls button {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/" class="nav-logo">Argus</a>
+      <a href="/repos/<%= owner %>/<%= repo %>/pulls"><%= owner %>/<%= repo %></a>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <!-- Updates banner (hidden by default) -->
+  <div id="updates-banner" class="updates-banner hidden">
+    <span>Updates available. </span>
+    <a href="" id="reload-link">Reload to review latest</a>
+    <button type="button" id="dismiss-banner" class="dismiss-btn">Dismiss</button>
+  </div>
+
+  <!-- Review form overlay -->
+  <div class="review-form-overlay" id="review-form-overlay"></div>
+
+  <div class="pr-container">
+    <!-- Main content -->
+    <div class="pr-main-content">
+      <!-- PR Header -->
+      <div class="pr-header">
+        <div class="review-button-container">
+          <button type="button" class="btn-review-toggle" id="review-toggle-btn">
+            Add your review
+          </button>
+        </div>
+
+        <h1 class="pr-title">
+          <%= pr.title %>
+          <span class="pr-number">#<%= pr.number %></span>
+        </h1>
+
+        <div class="pr-meta">
+          <span class="pr-state pr-state-<%= pr.state %>"><%= pr.state %></span>
+          <% if (pr.draft) { %>
+            <span class="badge-draft">Draft</span>
+          <% } %>
+          <span class="pr-author"><%= pr.user.login %></span>
+          wants to merge
+          <code class="ref"><%= pr.head.ref %></code>
+          into
+          <code class="ref"><%= pr.base.ref %></code>
+        </div>
+
+        <div class="pr-stats">
+          <span class="stat">
+            <strong><%= pr.commits %></strong> commit<%= pr.commits !== 1 ? 's' : '' %>
+          </span>
+          <span class="stat">
+            <strong><%= pr.changed_files %></strong> file<%= pr.changed_files !== 1 ? 's' : '' %> changed
+          </span>
+          <span class="stat additions">+<%= pr.additions %></span>
+          <span class="stat deletions">-<%= pr.deletions %></span>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="pr-tabs">
+        <button class="pr-tab active" data-tab="conversation">Conversation</button>
+        <button class="pr-tab" data-tab="commits">Commits <span style="background: #ddd; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= pr.commits %></span></button>
+        <button class="pr-tab" data-tab="files">Files changed <span style="background: #ddd; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= files.length %></span></button>
+      </div>
+
+      <!-- Conversation Tab -->
+      <div class="pr-tab-content active" data-tab-content="conversation">
+        <!-- PR Description -->
+        <% if (pr.body) { %>
+          <details class="pr-description" open>
+            <summary><h2>Description</h2></summary>
+            <div class="markdown-body">
+              <%- pr.renderedBody %>
+            </div>
+          </details>
+        <% } %>
+
+        <!-- Conversation / Comments -->
+        <% if (issueComments.length > 0 || reviews.length > 0 || reviewComments.length > 0) { %>
+          <details class="pr-conversation">
+            <summary>
+              <h2>Conversation (<%= issueComments.length + reviews.filter(r => r.body).length + reviewComments.length %>)</h2>
+            </summary>
+            <div class="conversation-controls">
+              <button id="expand-all-comments" class="btn btn-small">Expand all</button>
+              <button id="collapse-all-comments" class="btn btn-small">Collapse all</button>
+            </div>
+            <div class="comments-list">
+              <%
+                // Merge and sort all comments, reviews, and review comments by date
+                const allItems = [
+                  ...issueComments.map(c => ({ type: 'comment', data: c, date: new Date(c.created_at) })),
+                  ...reviews.filter(r => r.body).map(r => ({ type: 'review', data: r, date: new Date(r.submitted_at) })),
+                  ...reviewComments.map(c => ({ type: 'review_comment', data: c, date: new Date(c.created_at) }))
+                ].sort((a, b) => a.date - b.date);
+              %>
+              <% allItems.forEach(item => { %>
+                <% if (item.type === 'comment') { %>
+                  <details class="comment">
+                    <summary class="comment-header">
+                      <span class="comment-author"><%= item.data.user.login %></span>
+                      <time class="comment-time" datetime="<%= item.data.created_at %>">
+                        <%= new Date(item.data.created_at).toLocaleString() %>
+                      </time>
+                    </summary>
+                    <div class="comment-body markdown-body">
+                      <%- item.data.renderedBody %>
+                    </div>
+                  </details>
+                <% } else if (item.type === 'review') { %>
+                  <details class="review review-<%= item.data.state.toLowerCase() %>">
+                    <summary class="review-header">
+                      <span class="comment-author"><%= item.data.user.login %></span>
+                      <span class="review-state"><%= item.data.state.toLowerCase().replace('_', ' ') %></span>
+                      <time class="comment-time" datetime="<%= item.data.submitted_at %>">
+                        <%= new Date(item.data.submitted_at).toLocaleString() %>
+                      </time>
+                    </summary>
+                    <% if (item.data.body) { %>
+                      <div class="comment-body markdown-body">
+                        <%- item.data.renderedBody %>
+                      </div>
+                    <% } %>
+                  </details>
+                <% } else if (item.type === 'review_comment') { %>
+                  <details class="comment review-comment">
+                    <summary class="comment-header">
+                      <span class="comment-author"><%= item.data.user.login %></span>
+                      <span style="color: #666; margin: 0 0.5rem;">commented on</span>
+                      <code style="background: #f6f8fa; padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.85rem; word-break: break-all;"><%= item.data.path %></code>
+                      <% if (item.data.line) { %>
+                        <span style="color: #666; margin-left: 0.25rem;">line <%= item.data.line %></span>
+                      <% } %>
+                      <% if (item.data.original_commit_id && item.data.commit_id && item.data.original_commit_id !== item.data.commit_id) { %>
+                        <span style="background: #f6f8fa; color: #666; padding: 0.125rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem; border: 1px solid #ddd;">Outdated</span>
+                      <% } %>
+                      <time class="comment-time" datetime="<%= item.data.created_at %>" style="margin-left: 0.5rem;">
+                        <%= new Date(item.data.created_at).toLocaleString() %>
+                      </time>
+                    </summary>
+                    <% if (item.data.renderedHunk) { %>
+                      <div style="margin: 0.75rem 0; border: 1px solid #d1d9e0; border-radius: 6px; overflow: hidden;">
+                        <%- item.data.renderedHunk %>
+                      </div>
+                    <% } %>
+                    <div class="comment-body markdown-body">
+                      <%- item.data.renderedBody %>
+                    </div>
+                  </details>
+                <% } %>
+              <% }) %>
+            </div>
+          </details>
+        <% } %>
+
+        <!-- Comment Form -->
+        <div class="pr-comment-form">
+          <h2>Add a comment</h2>
+          <form method="POST" action="/pr/<%= owner %>/<%= repo %>/<%= pr.number %>/comment">
+            <textarea name="body"
+                      placeholder="Leave a comment..."
+                      rows="4"
+                      required
+                      class="comment-textarea"></textarea>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Comment</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Commits Tab -->
+      <div class="pr-tab-content" data-tab-content="commits">
+        <% if (revisions && revisions.length > 1) { %>
+          <details style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #ddd;">
+            <summary style="cursor: pointer; font-size: 0.95rem; margin-bottom: 0.5rem; user-select: none;">
+              Force Push History (<%= revisions.length %> revisions)
+            </summary>
+            <p style="color: #666; font-size: 0.85rem; margin: 0.75rem 0;">Click range-diff to see what changed between force pushes</p>
+            <ul class="commits-list">
+              <% revisions.forEach((rev, i) => { %>
+                <li class="commit-item">
+                  <div class="commit-header">
+                    <span style="font-size: 0.85rem; color: #666; min-width: 4rem; display: inline-block;"><%= i === 0 ? 'current' : 'rev ' + (revisions.length - i) %></span>
+                    <span class="commit-sha" style="<%= i === 0 ? 'font-weight: 600;' : '' %>"><%= rev.head_sha.slice(0, 7) %></span>
+                    <span style="color: #666; font-size: 0.85rem; margin-left: 0.5rem;"><%= new Date(rev.seen_at).toLocaleString() %></span>
+                    <% if (i < revisions.length - 1) { %>
+                      <% const olderRev = revisions[i+1]; %>
+                      <a style="margin-left: 0.5rem; font-size: 0.85rem; color: #0066cc; text-decoration: none;" href="/pr/<%= owner %>/<%= repo %>/<%= pr.number %>/range-diff/<%= olderRev.id %>/<%= rev.id %>">range-diff</a>
+                    <% } %>
+                  </div>
+                </li>
+              <% }) %>
+            </ul>
+          </details>
+        <% } %>
+
+        <h2 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Current Commits (<%= commits.length %>)</h2>
+        <ul class="commits-list">
+          <% commits.forEach(commit => { %>
+            <li class="commit-item">
+              <div class="commit-header">
+                <a href="/pr/<%= owner %>/<%= repo %>/<%= pr.number %>/commit/<%= commit.sha %>" style="text-decoration: none; color: inherit;">
+                  <h3 class="commit-message" style="cursor: pointer; color: #0066cc;"><%= commit.commit.message.split('\n')[0] %></h3>
+                </a>
+                <a href="/pr/<%= owner %>/<%= repo %>/<%= pr.number %>/commit/<%= commit.sha %>" class="commit-sha">
+                  <%= commit.sha.slice(0, 7) %>
+                </a>
+              </div>
+              <div class="commit-author">
+                <%= commit.commit.author.name %> committed on <%= new Date(commit.commit.author.date).toLocaleDateString() %>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+
+      <!-- Files Changed Tab -->
+      <div class="pr-tab-content" data-tab-content="files">
+        <div class="pr-files">
+          <h2>Files changed (<%= files.length %>)</h2>
+          <div class="diff-container" id="diff-container">
+            <% files.forEach((f, i) => { %>
+              <div class="diff-file-wrapper">
+                <%- f.renderedHtml %>
+                <% if (f.comments && f.comments.length > 0) { %>
+                  <details class="file-comments">
+                    <summary class="file-comments-header">
+                      <span class="comments-count"><%= f.comments.length %> comment<%= f.comments.length !== 1 ? 's' : '' %></span>
+                    </summary>
+                    <div class="file-comments-list">
+                      <% f.comments.forEach(comment => { %>
+                        <div class="inline-comment" data-comment-id="<%= comment.id %>">
+                          <div class="inline-comment-header">
+                            <span class="comment-author"><%= comment.user.login %></span>
+                            <% if (comment.line) { %>
+                              <span class="comment-line">Line <%= comment.line %></span>
+                            <% } %>
+                            <time class="comment-time" datetime="<%= comment.created_at %>">
+                              <%= new Date(comment.created_at).toLocaleString() %>
+                            </time>
+                          </div>
+                          <div class="inline-comment-body markdown-body">
+                            <%- comment.renderedBody %>
+                          </div>
+                        </div>
+                      <% }) %>
+                    </div>
+                  </details>
+                <% } %>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <aside class="pr-right-sidebar">
+      <div class="sidebar-section">
+        <h3>Reviewer Info</h3>
+        <div class="workflow-item">
+          <span class="workflow-label">Head SHA:</span>
+          <code class="sha-display" id="current-head-sha" title="<%= pr.head.sha %>">
+            <%= pr.head.sha.substring(0, 7) %>
+          </code>
+        </div>
+        <div class="workflow-item">
+          <span class="workflow-label">Fetched:</span>
+          <time id="fetched-at" datetime="<%= fetchedAt %>" style="font-size: 0.8rem;">
+            <%= new Date(fetchedAt).toLocaleTimeString() %>
+          </time>
+        </div>
+        <div class="workflow-item" style="color: #888; font-size: 0.75rem; margin-top: 0.25rem;">
+          <span id="poll-interval-text">Auto-checks every <%= Math.floor(pollIntervalMs / 1000) %>s</span>
+        </div>
+        <button type="button" id="check-updates-btn" class="btn btn-small btn-secondary">
+          Check for updates
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Checks</h3>
+        <div class="checks-summary checks-<%= checksSummary.state %>">
+          <% if (checksSummary.total === 0) { %>
+            <span class="checks-none">No checks</span>
+          <% } else { %>
+            <span class="checks-passed"><%= checksSummary.passed %> passed</span>
+            <% if (checksSummary.failed > 0) { %>
+              <span class="checks-failed">, <%= checksSummary.failed %> failed</span>
+            <% } %>
+            <% if (checksSummary.pending > 0) { %>
+              <span class="checks-pending">, <%= checksSummary.pending %> pending</span>
+            <% } %>
+          <% } %>
+        </div>
+        <% if (checks.length > 0 || statuses.length > 0) { %>
+          <details class="checks-details">
+            <summary class="checks-toggle">Show all checks</summary>
+            <ul class="checks-list">
+              <% checks.forEach(check => { %>
+                <li class="check-item check-<%= check.status === 'completed' ? check.conclusion : 'pending' %>">
+                  <span class="check-icon">
+                    <% if (check.status !== 'completed') { %>
+                      ◯
+                    <% } else if (check.conclusion === 'success' || check.conclusion === 'skipped') { %>
+                      ✓
+                    <% } else { %>
+                      ✗
+                    <% } %>
+                  </span>
+                  <a href="<%= check.html_url %>" target="_blank" rel="noopener" class="check-name" title="<%= check.name %>">
+                    <%= check.name %>
+                  </a>
+                </li>
+              <% }) %>
+              <% statuses.forEach(status => { %>
+                <li class="check-item check-<%= status.state %>">
+                  <span class="check-icon">
+                    <% if (status.state === 'pending') { %>
+                      ◯
+                    <% } else if (status.state === 'success') { %>
+                      ✓
+                    <% } else { %>
+                      ✗
+                    <% } %>
+                  </span>
+                  <a href="<%= status.target_url %>" target="_blank" rel="noopener" class="check-name" title="<%= status.context %>">
+                    <%= status.context %>
+                  </a>
+                </li>
+              <% }) %>
+            </ul>
+          </details>
+        <% } %>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Review Form (Modal) -->
+  <div class="pr-review-form" id="review-form">
+    <h2>Submit review</h2>
+    <form method="POST" action="/pr/<%= owner %>/<%= repo %>/<%= pr.number %>/review">
+      <textarea name="body"
+                placeholder="Leave a review comment (optional for approve/comment)..."
+                rows="4"
+                class="comment-textarea"></textarea>
+      <div class="form-actions review-actions">
+        <button type="button" class="btn btn-secondary" id="cancel-review-btn">
+          Cancel
+        </button>
+        <button type="submit" name="event" value="COMMENT" class="btn btn-secondary">
+          Comment
+        </button>
+        <button type="submit" name="event" value="APPROVE" class="btn btn-success">
+          Approve
+        </button>
+        <button type="submit" name="event" value="REQUEST_CHANGES" class="btn btn-danger">
+          Request changes
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Inline comment form template -->
+  <%- inlineCommentFormTemplate %>
+
+  <!-- Pass data to JS -->
+  <script>
+    window.ARGUS_CONFIG = {
+      owner: '<%= owner %>',
+      repo: '<%= repo %>',
+      prNumber: <%= pr.number %>,
+      headSha: '<%= pr.head.sha %>',
+      fetchedAt: '<%= fetchedAt %>',
+      pollIntervalMs: <%= pollIntervalMs %>
+    };
+
+    // Tab switching
+    document.querySelectorAll('.pr-tab').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        const targetTab = e.target.dataset.tab;
+        if (!targetTab) return;
+
+        // Update active tab
+        document.querySelectorAll('.pr-tab').forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+
+        // Update active content
+        document.querySelectorAll('.pr-tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`[data-tab-content="${targetTab}"]`).classList.add('active');
+      });
+    });
+
+    // Review form modal
+    const reviewToggleBtn = document.getElementById('review-toggle-btn');
+    const reviewForm = document.getElementById('review-form');
+    const reviewOverlay = document.getElementById('review-form-overlay');
+    const cancelReviewBtn = document.getElementById('cancel-review-btn');
+
+    reviewToggleBtn.addEventListener('click', () => {
+      reviewForm.classList.add('active');
+      reviewOverlay.classList.add('active');
+    });
+
+    cancelReviewBtn.addEventListener('click', () => {
+      reviewForm.classList.remove('active');
+      reviewOverlay.classList.remove('active');
+    });
+
+    reviewOverlay.addEventListener('click', () => {
+      reviewForm.classList.remove('active');
+      reviewOverlay.classList.remove('active');
+    });
+  </script>
+  <script src="/static/js/pr.js" defer></script>
+</body>
+</html>

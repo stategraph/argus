@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/pr.css">
+  <link rel="stylesheet" href="/static/css/github-markdown-light.css">
+  <style>
+    .commit-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    .commit-header {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .commit-message {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+    }
+
+    .commit-meta {
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .commit-sha {
+      font-family: monospace;
+      background: #f6f8fa;
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+      margin-left: 0.5rem;
+    }
+
+    .files-changed {
+      margin-top: 1.5rem;
+    }
+
+    .files-changed h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <div class="nav-links">
+        <a href="/dashboard">Dashboard</a>
+      </div>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="commit-container">
+    <div class="commit-header">
+      <h1 class="commit-message"><%= commit.commit.message.split('\n')[0] %></h1>
+      <div class="commit-meta">
+        <% if (commit.commit.author && commit.commit.author.name) { %>
+          <%= commit.commit.author.name %> committed
+          <% if (commit.commit.author.date) { %>
+            on <%= new Date(commit.commit.author.date).toLocaleString() %>
+          <% } %>
+        <% } %>
+        <span class="commit-sha"><%= commit.sha.slice(0, 7) %></span>
+      </div>
+      <% if (commit.commit.message.includes('\n')) { %>
+        <pre style="margin-top: 1rem; white-space: pre-wrap; font-size: 0.9rem; color: #666;"><%= commit.commit.message.split('\n').slice(1).join('\n').trim() %></pre>
+      <% } %>
+    </div>
+
+    <div class="files-changed">
+      <h2>Files changed (<%= files.length %>)</h2>
+      <div class="diff-container">
+        <% files.forEach((f, i) => { %>
+          <div class="diff-file-wrapper">
+            <%- f.renderedHtml %>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

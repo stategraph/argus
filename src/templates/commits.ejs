@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .commits-page { max-width: 900px; margin: 0 auto; padding: 1rem; }
+    .commits-page h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+    .commits-page h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.25rem; }
+
+    .revision-list, .commit-list { margin: 0; padding: 0; list-style: none; }
+    .revision-item, .commit-item { padding: 0.375rem 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    .revision-item:last-child, .commit-item:last-child { border-bottom: none; }
+
+    .revision-label { display: inline-block; min-width: 5em; color: #666; }
+    .revision-sha { font-family: monospace; margin-right: 0.5rem; }
+    .revision-time { color: #888; font-size: 0.85rem; margin-right: 0.5rem; }
+    .revision-current { font-weight: 600; color: #008800; }
+    .revision-diff { background: #0066cc; color: #fff; padding: 0.125rem 0.5rem; border-radius: 3px; text-decoration: none; font-size: 0.8rem; }
+    .revision-diff:hover { background: #0055aa; text-decoration: none; }
+
+    .commit-item { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.5rem; border-radius: 4px; transition: background-color 0.2s; }
+    .commit-item:hover { background-color: #f6f8fa; cursor: pointer; }
+    .commit-link { display: flex; align-items: baseline; gap: 0.5rem; flex: 1; text-decoration: none; color: inherit; }
+    .commit-sha { font-family: monospace; color: #0066cc; min-width: 5em; font-weight: 500; }
+    .commit-sha:hover { text-decoration: underline; }
+    .commit-author { color: #666; min-width: 8em; }
+    .commit-msg { color: #222; flex: 1; }
+
+    .compare-form { margin-top: 0.5rem; font-size: 0.9rem; }
+    .compare-form input { font-family: monospace; width: 7em; padding: 0.125rem 0.25rem; }
+    .compare-form button { padding: 0.125rem 0.5rem; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <a href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>">&larr; PR #<%= prNumber %></a>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="commits-page">
+    <h1><%= owner %>/<%= repo %>#<%= prNumber %></h1>
+
+    <% if (revisions.length > 1) { %>
+      <h2>Force Push History (<%= revisions.length %> revisions)</h2>
+      <p style="color: #666; font-size: 0.85rem; margin-bottom: 0.5rem;">Click to see what changed between force pushes</p>
+      <ul class="revision-list">
+        <% revisions.forEach((rev, i) => { %>
+          <li class="revision-item">
+            <span class="revision-label"><%= i === 0 ? 'current' : 'rev ' + (revisions.length - i) %></span>
+            <span class="revision-sha<%= i === 0 ? ' revision-current' : '' %>"><%= rev.head_sha.slice(0, 7) %></span>
+            <span class="revision-time"><%= new Date(rev.seen_at).toLocaleString() %></span>
+            <% if (i < revisions.length - 1) { %>
+              <% const olderRev = revisions[i+1]; %>
+              <a class="revision-diff" href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>/range-diff/<%= olderRev.id %>/<%= rev.id %>">
+                range-diff
+              </a>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p style="color: #666; font-size: 0.9rem;">No force push history yet. Revisions are tracked each time you view this PR.</p>
+    <% } %>
+
+    <h2>Current Commits (<%= commits.length %>)</h2>
+    <p style="color: #666; font-size: 0.85rem; margin-bottom: 0.5rem;">Click any commit to view its changes</p>
+    <ul class="commit-list">
+      <% commits.forEach((c, i) => { %>
+        <li class="commit-item">
+          <a class="commit-link" href="/pr/<%= owner %>/<%= repo %>/<%= prNumber %>/commit/<%= c.sha %>">
+            <span class="commit-sha"><%= c.sha.slice(0, 7) %></span>
+            <span class="commit-author"><%= c.author ? c.author.login : (c.commit.author?.name || '?') %></span>
+            <span class="commit-msg"><%= c.commit.message.split('\n')[0].slice(0, 72) %></span>
+          </a>
+        </li>
+      <% }) %>
+    </ul>
+
+    <h2>Compare Any Two Commits</h2>
+    <form class="compare-form" onsubmit="location.href='/pr/<%= owner %>/<%= repo %>/<%= prNumber %>/compare/'+this.b.value+'/'+this.h.value;return false">
+      <input name="b" placeholder="base sha">
+      ..
+      <input name="h" placeholder="head sha">
+      <button>Compare</button>
+    </form>
+  </main>
+</body>
+</html>

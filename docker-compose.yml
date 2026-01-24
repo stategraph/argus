@@ -1,0 +1,23 @@
+services:
+  argus:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist SQLite database locally
+      - ./data:/app/data
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DATABASE_PATH=/app/data/argus.db
+      # Pass through from .env or set directly
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      # For GitHub App auth (optional)
+      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
+      - GITHUB_APP_PRIVATE_KEY=${GITHUB_APP_PRIVATE_KEY:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - SESSION_SECRET=${SESSION_SECRET:-default-dev-secret-change-in-prod}
+      - BASE_URL=${BASE_URL:-http://localhost:3000}
+      - CACHE_TTL=${CACHE_TTL:-60}
+    restart: unless-stopped
