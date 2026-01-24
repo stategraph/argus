@@ -16,9 +16,9 @@ This fixes that.
 
 - **Server-rendered HTML** - Content loads immediately. No hydration wall.
 - **Explicit refresh** - PR updates? You're told. You choose when to reload. No surprise reflows.
-- **Small DOM, large PRs** - Files collapse by default. Diffs chunk on demand.
+- **Smart rendering** - Large diffs chunk on demand. Collapsible files for quick navigation.
 - **Keyboard-first** - Navigate files, toggle diffs, comment—all from the keyboard.
-- **GitHub stays authoritative** - Reads/writes through GitHub API. Comments land on GitHub.
+- **GitHub stays authoritative** - Reads/writes through GitHub API. Comments, merges, and reviews all go through GitHub.
 
 This is not a new workflow. It's a better screen.
 

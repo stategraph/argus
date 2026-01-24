@@ -521,3 +521,37 @@ export async function fetchPRTimeline(
     return [];
   }
 }
+
+// Merge a pull request
+export async function mergePR(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  commitTitle?: string,
+  commitMessage?: string,
+  mergeMethod: 'merge' | 'squash' | 'rebase' = 'merge'
+): Promise<{ merged: boolean; message: string; sha?: string }> {
+  try {
+    const response = await octokit.pulls.merge({
+      owner,
+      repo,
+      pull_number: prNumber,
+      commit_title: commitTitle,
+      commit_message: commitMessage,
+      merge_method: mergeMethod,
+    });
+
+    return {
+      merged: response.data.merged,
+      message: response.data.message,
+      sha: response.data.sha,
+    };
+  } catch (err: any) {
+    console.error('Failed to merge PR:', err);
+    return {
+      merged: false,
+      message: err.message || 'Failed to merge PR',
+    };
+  }
+}

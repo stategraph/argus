@@ -34,6 +34,7 @@
     setupInlineComments();
     setupLoadFullDiff();
     setupCommentControls();
+    setupReplyButtons();
     setupVimBindings();
 
     // Dismiss banner
@@ -291,6 +292,40 @@
     }
   }
 
+  // Reply to comments
+  function setupReplyButtons() {
+    const replyButtons = document.querySelectorAll('.reply-to-comment');
+    const commentForm = document.querySelector('.pr-comment-form textarea[name="body"]');
+
+    if (!commentForm) return;
+
+    replyButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        const author = button.getAttribute('data-author');
+        const body = button.getAttribute('data-body');
+        const shouldQuote = button.getAttribute('data-quote') === 'true';
+
+        let replyText;
+
+        if (shouldQuote && body) {
+          // Create quoted reply
+          const quotedLines = body.split('\\n').map(line => `> ${line}`).join('\n');
+          replyText = `@${author}\n\n${quotedLines}\n\n`;
+        } else {
+          // Simple mention reply
+          replyText = `@${author} `;
+        }
+
+        // Set the form value and focus
+        commentForm.value = replyText;
+        commentForm.focus();
+
+        // Scroll to the comment form
+        commentForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+  }
+
   // Vim key bindings
   function setupVimBindings() {
     let lastKeyTime = 0;
@@ -471,18 +506,14 @@
       }
     });
 
-    // Initialize first file/commit on tab switch
+    // Reset selection index on tab switch (but don't auto-highlight)
     tabs.forEach((tab, index) => {
       tab.addEventListener('click', () => {
-        setTimeout(() => {
-          if (index === 2) {
-            selectedFileIndex = 0;
-            highlightFile(0);
-          } else if (index === 1) {
-            selectedCommitIndex = 0;
-            highlightCommit(0);
-          }
-        }, 100);
+        if (index === 2) {
+          selectedFileIndex = 0;
+        } else if (index === 1) {
+          selectedCommitIndex = 0;
+        }
       });
     });
   }
