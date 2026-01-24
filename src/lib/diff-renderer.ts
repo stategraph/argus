@@ -150,7 +150,7 @@ export function renderFile(
   // Binary file
   if (file.isBinary) {
     return `
-      <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}">
+      <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}" open>
         <summary class="file-header" id="file-${index}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -170,7 +170,7 @@ export function renderFile(
   // Empty file
   if (file.hunks.length === 0) {
     return `
-      <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}">
+      <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}" open>
         <summary class="file-header" id="file-${index}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -197,7 +197,7 @@ export function renderFile(
   }
 
   return `
-    <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}">
+    <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}" open>
       <summary class="file-header" id="file-${index}">
         <span class="file-header-info">
           <span class="status-badge ${badge.class}">${badge.text}</span>

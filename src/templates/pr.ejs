@@ -634,7 +634,7 @@
 
         <!-- Conversation / Comments -->
         <% if (issueComments.length > 0 || reviews.length > 0 || reviewComments.length > 0) { %>
-          <details class="pr-conversation">
+          <details class="pr-conversation" open>
             <summary>
               <h2>Conversation (<%= issueComments.length + reviews.filter(r => r.body).length + reviewComments.length %>)</h2>
             </summary>
@@ -653,7 +653,7 @@
               %>
               <% allItems.forEach(item => { %>
                 <% if (item.type === 'comment') { %>
-                  <details class="comment">
+                  <details class="comment" open>
                     <summary class="comment-header">
                       <span class="comment-author"><%= item.data.user.login %></span>
                       <time class="comment-time" datetime="<%= item.data.created_at %>">
@@ -663,9 +663,17 @@
                     <div class="comment-body markdown-body">
                       <%- item.data.renderedBody %>
                     </div>
+                    <div style="padding: 0 1rem 0.5rem; display: flex; gap: 0.25rem;">
+                      <button type="button" class="btn btn-small reply-to-comment" data-author="<%= item.data.user.login %>" data-body="<%= item.data.body ? item.data.body.replace(/"/g, '&quot;').replace(/\n/g, '\\n') : '' %>" data-quote="false">
+                        Reply
+                      </button>
+                      <button type="button" class="btn btn-small reply-to-comment" data-author="<%= item.data.user.login %>" data-body="<%= item.data.body ? item.data.body.replace(/"/g, '&quot;').replace(/\n/g, '\\n') : '' %>" data-quote="true" style="padding: 0.375rem 0.5rem;">
+                        💬
+                      </button>
+                    </div>
                   </details>
                 <% } else if (item.type === 'review') { %>
-                  <details class="review review-<%= item.data.state.toLowerCase() %>">
+                  <details class="review review-<%= item.data.state.toLowerCase() %>" open>
                     <summary class="review-header">
                       <span class="comment-author"><%= item.data.user.login %></span>
                       <span class="review-state"><%= item.data.state.toLowerCase().replace('_', ' ') %></span>
@@ -677,10 +685,18 @@
                       <div class="comment-body markdown-body">
                         <%- item.data.renderedBody %>
                       </div>
+                      <div style="padding: 0 1rem 0.5rem; display: flex; gap: 0.25rem;">
+                        <button type="button" class="btn btn-small reply-to-comment" data-author="<%= item.data.user.login %>" data-body="<%= item.data.body ? item.data.body.replace(/"/g, '&quot;').replace(/\n/g, '\\n') : '' %>" data-quote="false">
+                          Reply
+                        </button>
+                        <button type="button" class="btn btn-small reply-to-comment" data-author="<%= item.data.user.login %>" data-body="<%= item.data.body ? item.data.body.replace(/"/g, '&quot;').replace(/\n/g, '\\n') : '' %>" data-quote="true" style="padding: 0.375rem 0.5rem;">
+                          💬
+                        </button>
+                      </div>
                     <% } %>
                   </details>
                 <% } else if (item.type === 'review_comment') { %>
-                  <details class="comment review-comment">
+                  <details class="comment review-comment" open>
                     <summary class="comment-header">
                       <span class="comment-author"><%= item.data.user.login %></span>
                       <span style="color: #666; margin: 0 0.5rem;">commented on</span>
@@ -702,6 +718,14 @@
                     <% } %>
                     <div class="comment-body markdown-body">
                       <%- item.data.renderedBody %>
+                    </div>
+                    <div style="padding: 0 1rem 0.5rem; display: flex; gap: 0.25rem;">
+                      <button type="button" class="btn btn-small reply-to-comment" data-author="<%= item.data.user.login %>" data-body="<%= item.data.body ? item.data.body.replace(/"/g, '&quot;').replace(/\n/g, '\\n') : '' %>" data-quote="false">
+                        Reply
+                      </button>
+                      <button type="button" class="btn btn-small reply-to-comment" data-author="<%= item.data.user.login %>" data-body="<%= item.data.body ? item.data.body.replace(/"/g, '&quot;').replace(/\n/g, '\\n') : '' %>" data-quote="true" style="padding: 0.375rem 0.5rem;">
+                        💬
+                      </button>
                     </div>
                   </details>
                 <% } %>
@@ -770,6 +794,63 @@
             </li>
           <% }) %>
         </ul>
+
+        <!-- Checks Section -->
+        <div style="margin-top: 2rem;">
+          <h2 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Checks</h2>
+          <div class="checks-summary checks-<%= checksSummary.state %>" style="margin-bottom: 0.75rem;">
+            <% if (checksSummary.total === 0) { %>
+              <span class="checks-none">No checks</span>
+            <% } else { %>
+              <span class="checks-passed"><%= checksSummary.passed %> passed</span>
+              <% if (checksSummary.failed > 0) { %>
+                <span class="checks-failed">, <%= checksSummary.failed %> failed</span>
+              <% } %>
+              <% if (checksSummary.pending > 0) { %>
+                <span class="checks-pending">, <%= checksSummary.pending %> pending</span>
+              <% } %>
+            <% } %>
+          </div>
+          <% if (checks.length > 0 || statuses.length > 0) { %>
+            <details class="checks-details">
+              <summary class="checks-toggle">Show all checks</summary>
+              <ul class="checks-list">
+                <% checks.forEach(check => { %>
+                  <li class="check-item check-<%= check.status === 'completed' ? check.conclusion : 'pending' %>">
+                    <span class="check-icon">
+                      <% if (check.status !== 'completed') { %>
+                        ◯
+                      <% } else if (check.conclusion === 'success' || check.conclusion === 'skipped') { %>
+                        ✓
+                      <% } else { %>
+                        ✗
+                      <% } %>
+                    </span>
+                    <a href="<%= check.html_url %>" target="_blank" rel="noopener" class="check-name" title="<%= check.name %>">
+                      <%= check.name %>
+                    </a>
+                  </li>
+                <% }) %>
+                <% statuses.forEach(status => { %>
+                  <li class="check-item check-<%= status.state %>">
+                    <span class="check-icon">
+                      <% if (status.state === 'pending') { %>
+                        ◯
+                      <% } else if (status.state === 'success') { %>
+                        ✓
+                      <% } else { %>
+                        ✗
+                      <% } %>
+                    </span>
+                    <a href="<%= status.target_url %>" target="_blank" rel="noopener" class="check-name" title="<%= status.context %>">
+                      <%= status.context %>
+                    </a>
+                  </li>
+                <% }) %>
+              </ul>
+            </details>
+          <% } %>
+        </div>
       </div>
 
       <!-- Files Changed Tab -->
@@ -836,61 +917,40 @@
         </button>
       </div>
 
-      <div class="sidebar-section">
-        <h3>Checks</h3>
-        <div class="checks-summary checks-<%= checksSummary.state %>">
-          <% if (checksSummary.total === 0) { %>
-            <span class="checks-none">No checks</span>
-          <% } else { %>
-            <span class="checks-passed"><%= checksSummary.passed %> passed</span>
-            <% if (checksSummary.failed > 0) { %>
-              <span class="checks-failed">, <%= checksSummary.failed %> failed</span>
+      <!-- Merge Section -->
+      <% if (pr.state === 'open') { %>
+        <div class="sidebar-section">
+          <h3>Merge Pull Request</h3>
+          <div style="margin-bottom: 0.75rem;">
+            <% if (pr.mergeable === false) { %>
+              <div style="color: #d73a49; font-size: 0.85rem; margin-bottom: 0.5rem;">
+                ⚠ This PR has conflicts that must be resolved
+              </div>
+            <% } else if (pr.mergeable === null) { %>
+              <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.5rem;">
+                Checking if PR is mergeable...
+              </div>
             <% } %>
-            <% if (checksSummary.pending > 0) { %>
-              <span class="checks-pending">, <%= checksSummary.pending %> pending</span>
-            <% } %>
-          <% } %>
+          </div>
+          <form method="POST" action="/pr/<%= owner %>/<%= repo %>/<%= pr.number %>/merge" id="merge-form">
+            <select name="merge_method" style="width: 100%; margin-bottom: 0.5rem; padding: 0.375rem; border: 1px solid #d1d5da; border-radius: 6px;">
+              <option value="merge">Create a merge commit</option>
+              <option value="squash">Squash and merge</option>
+              <option value="rebase">Rebase and merge</option>
+            </select>
+            <button type="submit" class="btn btn-success" style="width: 100%;" <%= pr.mergeable === false ? 'disabled' : '' %>>
+              Merge pull request
+            </button>
+          </form>
         </div>
-        <% if (checks.length > 0 || statuses.length > 0) { %>
-          <details class="checks-details">
-            <summary class="checks-toggle">Show all checks</summary>
-            <ul class="checks-list">
-              <% checks.forEach(check => { %>
-                <li class="check-item check-<%= check.status === 'completed' ? check.conclusion : 'pending' %>">
-                  <span class="check-icon">
-                    <% if (check.status !== 'completed') { %>
-                      ◯
-                    <% } else if (check.conclusion === 'success' || check.conclusion === 'skipped') { %>
-                      ✓
-                    <% } else { %>
-                      ✗
-                    <% } %>
-                  </span>
-                  <a href="<%= check.html_url %>" target="_blank" rel="noopener" class="check-name" title="<%= check.name %>">
-                    <%= check.name %>
-                  </a>
-                </li>
-              <% }) %>
-              <% statuses.forEach(status => { %>
-                <li class="check-item check-<%= status.state %>">
-                  <span class="check-icon">
-                    <% if (status.state === 'pending') { %>
-                      ◯
-                    <% } else if (status.state === 'success') { %>
-                      ✓
-                    <% } else { %>
-                      ✗
-                    <% } %>
-                  </span>
-                  <a href="<%= status.target_url %>" target="_blank" rel="noopener" class="check-name" title="<%= status.context %>">
-                    <%= status.context %>
-                  </a>
-                </li>
-              <% }) %>
-            </ul>
-          </details>
-        <% } %>
-      </div>
+      <% } else { %>
+        <div class="sidebar-section">
+          <h3>Status</h3>
+          <div style="padding: 0.5rem; background: <%= pr.state === 'closed' ? '#f1f8ff' : '#f6f8fa' %>; border-radius: 6px; text-align: center; font-weight: 600; color: <%= pr.merged ? '#6f42c1' : '#586069' %>;">
+            <%= pr.merged ? '✓ Merged' : 'Closed' %>
+          </div>
+        </div>
+      <% } %>
     </aside>
   </div>
 

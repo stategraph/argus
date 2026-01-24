@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { nameToEmoji } from 'gemoji';
 
 // Configure marked for safe rendering with GitHub-flavored markdown
 marked.use({
@@ -24,12 +25,21 @@ marked.use({
   },
 });
 
+// Convert emoji shortcodes to actual emoji
+function convertEmoji(text: string): string {
+  return text.replace(/:([a-z0-9_+-]+):/g, (match, name) => {
+    return nameToEmoji[name] || match;
+  });
+}
+
 // Render markdown to HTML
 export function renderMarkdown(markdown: string | null | undefined): string {
   if (!markdown) return '';
 
   try {
-    return marked(markdown) as string;
+    // Convert emoji shortcodes (like :thumbsup:) to emoji before markdown processing
+    const withEmoji = convertEmoji(markdown);
+    return marked(withEmoji) as string;
   } catch (err) {
     console.error('Markdown rendering error:', err);
     return escapeHtml(markdown);

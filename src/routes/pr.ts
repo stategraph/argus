@@ -18,6 +18,7 @@ import {
   createReviewComment,
   replyToReviewComment,
   fetchPRTimeline,
+  mergePR,
 } from '../lib/github.js';
 import { query } from '../db/index.js';
 import { parsePatch, truncateFile, DiffFile, parseHunkString } from '../lib/diff-parser.js';
@@ -919,6 +920,58 @@ export async function prRoutes(fastify: FastifyInstance) {
       return reply.redirect(
         `/pr/${owner}/${repo}/${prNumber}/range-diff/${fromId}/${toId}`
       );
+    }
+  );
+
+  // Merge PR
+  fastify.post(
+    '/pr/:owner/:repo/:number/merge',
+    async (
+      request: FastifyRequest<{
+        Params: PRParams;
+        Body: {
+          merge_method?: 'merge' | 'squash' | 'rebase';
+          commit_title?: string;
+          commit_message?: string;
+        };
+      }>,
+      reply: FastifyReply
+    ) => {
+      if (!requireAuth(request, reply)) return;
+
+      const { owner, repo, number } = request.params;
+      const { merge_method = 'merge', commit_title, commit_message } = request.body;
+      const prNumber = parseInt(number, 10);
+
+      try {
+        const octokit = createUserOctokit(request.user!.accessToken);
+        const result = await mergePR(
+          octokit,
+          owner,
+          repo,
+          prNumber,
+          commit_title,
+          commit_message,
+          merge_method
+        );
+
+        if (!result.merged) {
+          return reply.view('error', {
+            title: 'Merge Failed - Argus',
+            user: request.user,
+            message: `Failed to merge PR: ${result.message}`,
+          });
+        }
+
+        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+      } catch (err: any) {
+        console.error('Error merging PR:', err);
+        return reply.view('error', {
+          title: 'Error - Argus',
+          user: request.user,
+          message: `Failed to merge PR: ${err.message}`,
+        });
+      }
     }
   );
 }
