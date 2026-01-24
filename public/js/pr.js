@@ -34,6 +34,7 @@
     setupInlineComments();
     setupLoadFullDiff();
     setupCommentControls();
+    setupVimBindings();
 
     // Dismiss banner
     if (dismissBannerBtn) {
@@ -288,6 +289,202 @@
         }
       });
     }
+  }
+
+  // Vim key bindings
+  function setupVimBindings() {
+    let lastKeyTime = 0;
+    let lastKey = '';
+
+    // Get tab navigation elements
+    const tabs = Array.from(document.querySelectorAll('.pr-tab'));
+    const getCurrentTab = () => tabs.findIndex(tab => tab.classList.contains('active'));
+
+    const switchTab = (index) => {
+      if (index >= 0 && index < tabs.length) {
+        tabs[index].click();
+      }
+    };
+
+    // Get files in Files tab
+    const getFiles = () => Array.from(document.querySelectorAll('.diff-file'));
+    const getCommits = () => Array.from(document.querySelectorAll('.commit-item'));
+
+    let selectedFileIndex = 0;
+    let selectedCommitIndex = 0;
+
+    const highlightFile = (index) => {
+      const files = getFiles();
+      if (files.length === 0) return;
+
+      // Clamp index
+      selectedFileIndex = Math.max(0, Math.min(index, files.length - 1));
+
+      // Remove previous highlight
+      files.forEach(f => f.classList.remove('vim-selected'));
+
+      // Add highlight
+      const file = files[selectedFileIndex];
+      file.classList.add('vim-selected');
+      file.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    const highlightCommit = (index) => {
+      const commits = getCommits();
+      if (commits.length === 0) return;
+
+      // Clamp index
+      selectedCommitIndex = Math.max(0, Math.min(index, commits.length - 1));
+
+      // Remove previous highlight
+      commits.forEach(c => c.classList.remove('vim-selected'));
+
+      // Add highlight
+      const commit = commits[selectedCommitIndex];
+      commit.classList.add('vim-selected');
+      commit.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    document.addEventListener('keydown', (e) => {
+      // Don't intercept if user is typing in a form element
+      if (e.target.matches('input, textarea, select')) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      const now = Date.now();
+      const timeSinceLastKey = now - lastKeyTime;
+
+      // Handle 'gg' for go to top
+      if (lastKey === 'g' && key === 'g' && timeSinceLastKey < 500) {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        lastKey = '';
+        return;
+      }
+
+      lastKey = key;
+      lastKeyTime = now;
+
+      // Tab navigation with h/l
+      if (key === 'h' || key === 'arrowleft') {
+        e.preventDefault();
+        const current = getCurrentTab();
+        switchTab(current - 1);
+        return;
+      }
+
+      if (key === 'l' || key === 'arrowright') {
+        e.preventDefault();
+        const current = getCurrentTab();
+        switchTab(current + 1);
+        return;
+      }
+
+      // Direct tab shortcuts
+      if (key === 'c') {
+        e.preventDefault();
+        switchTab(0); // Conversation
+        return;
+      }
+
+      if (key === 'm') {
+        e.preventDefault();
+        switchTab(1); // Commits
+        return;
+      }
+
+      if (key === 'f') {
+        e.preventDefault();
+        switchTab(2); // Files
+        return;
+      }
+
+      // Reload page
+      if (key === 'r') {
+        e.preventDefault();
+        window.location.reload();
+        return;
+      }
+
+      // Go to bottom
+      if (key === 'g' && e.shiftKey) {
+        e.preventDefault();
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        lastKey = '';
+        return;
+      }
+
+      // File/Commit navigation
+      const currentTab = getCurrentTab();
+
+      // In Files tab (index 2)
+      if (currentTab === 2) {
+        if (key === 'j' || key === 'arrowdown') {
+          e.preventDefault();
+          highlightFile(selectedFileIndex + 1);
+          return;
+        }
+
+        if (key === 'k' || key === 'arrowup') {
+          e.preventDefault();
+          highlightFile(selectedFileIndex - 1);
+          return;
+        }
+
+        if (key === 'o' || key === 'enter') {
+          e.preventDefault();
+          const files = getFiles();
+          if (files[selectedFileIndex]) {
+            const details = files[selectedFileIndex];
+            details.open = !details.open;
+          }
+          return;
+        }
+      }
+
+      // In Commits tab (index 1)
+      if (currentTab === 1) {
+        if (key === 'j' || key === 'arrowdown') {
+          e.preventDefault();
+          highlightCommit(selectedCommitIndex + 1);
+          return;
+        }
+
+        if (key === 'k' || key === 'arrowup') {
+          e.preventDefault();
+          highlightCommit(selectedCommitIndex - 1);
+          return;
+        }
+
+        if (key === 'enter') {
+          e.preventDefault();
+          const commits = getCommits();
+          if (commits[selectedCommitIndex]) {
+            const link = commits[selectedCommitIndex].querySelector('a');
+            if (link) {
+              link.click();
+            }
+          }
+          return;
+        }
+      }
+    });
+
+    // Initialize first file/commit on tab switch
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        setTimeout(() => {
+          if (index === 2) {
+            selectedFileIndex = 0;
+            highlightFile(0);
+          } else if (index === 1) {
+            selectedCommitIndex = 0;
+            highlightCommit(0);
+          }
+        }, 100);
+      });
+    });
   }
 
   // Cleanup on page unload
