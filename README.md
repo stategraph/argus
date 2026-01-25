@@ -1,26 +1,22 @@
 # Argus
 
-Fast GitHub Pull Requests.
+**A fast, server-rendered interface for GitHub pull requests.**
 
 ![Screenshot](screenshot.png)
 
-## Why this exists
+## Why it exists
 
-GitHub pull requests used to be fast. You loaded a page, saw the diff, reviewed the change.
+GitHub's PR page is slow. Sometimes it takes forever to load.
 
-Now the PR screen is a heavy client-side app optimizing for interaction density, not understanding code. Large diffs are slow. Context is fragmented. Force-pushes invalidate reviews. You spend more time fighting the UI than reading code.
+This is a server-rendered alternative that loads pull requests immediately.
 
-This fixes that.
+## What you get
 
-## What it does differently
-
-- **Server-rendered HTML** - Content loads immediately. No hydration wall.
-- **Explicit refresh** - PR updates? You're told. You choose when to reload. No surprise reflows.
-- **Smart rendering** - Large diffs chunk on demand. Collapsible files for quick navigation.
-- **Keyboard-first** - Navigate files, toggle diffs, comment—all from the keyboard.
-- **GitHub stays authoritative** - Reads/writes through GitHub API. Comments, merges, and reviews all go through GitHub.
-
-This is not a new workflow. It's a better screen.
+- **Static rendering** - Server-rendered HTML that shows up instantly, every time. No client-side hydration.
+- **Fast for large diffs** - Smart chunking and collapsible files. No waiting for the client to render thousands of lines.
+- **Control over updates** - Get notified when PRs change, reload when you're ready. No surprise reflows.
+- **Keyboard navigation** - Browse files, toggle diffs, and comment without the mouse.
+- **Works with GitHub** - All comments, reviews, and merges sync through the GitHub API. Your workflow stays intact.
 
 ## Quick Start
 
