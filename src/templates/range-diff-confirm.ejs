@@ -136,6 +136,21 @@
     .btn-cancel:hover {
       background: #555;
     }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .confirm-container { margin: 1.5rem auto; padding: 1rem; }
+      .confirm-buttons { flex-direction: column; }
+      .btn-proceed, .btn-cancel { width: 100%; text-align: center; }
+    }
+
+    @media (max-width: 480px) {
+      .confirm-container { margin: 1rem 0.5rem; padding: 0.75rem; }
+      .confirm-header h1 { font-size: 1.1rem; }
+      .confirm-info, .confirm-warning { padding: 0.75rem; }
+      .confirm-info h2, .confirm-warning h2 { font-size: 0.9rem; }
+      .revision-info { font-size: 0.8rem; }
+    }
   </style>
 </head>
 <body>

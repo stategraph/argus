@@ -29,6 +29,20 @@
     .compare-diff .line-add { color: #008800; background: #e6ffec; display: block; }
     .compare-diff .line-del { color: #cc0000; background: #ffebe9; display: block; }
     .compare-diff .line-hunk { color: #0066cc; background: #f0f8ff; display: block; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .compare-page { padding: 0.75rem; }
+      .compare-header h1 { font-size: 1rem; word-break: break-all; }
+      .compare-diff pre { font-size: 11px; }
+    }
+
+    @media (max-width: 480px) {
+      .compare-page { padding: 0.5rem; }
+      .compare-header h1 { font-size: 0.9rem; }
+      .compare-meta { font-size: 0.8rem; }
+      .compare-diff pre { font-size: 10px; padding: 0.375rem; }
+    }
   </style>
 </head>
 <body>

@@ -49,6 +49,22 @@
       font-size: 1.25rem;
       margin-bottom: 1rem;
     }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .commit-container { padding: 0.75rem; }
+      .commit-header { padding: 1rem; }
+      .commit-message { font-size: 1.25rem; }
+    }
+
+    @media (max-width: 480px) {
+      .commit-container { padding: 0.5rem; }
+      .commit-header { padding: 0.75rem; }
+      .commit-message { font-size: 1rem; }
+      .commit-meta { font-size: 0.8rem; }
+      .commit-sha { font-size: 0.8rem; margin-left: 0; display: block; margin-top: 0.25rem; }
+      .files-changed h2 { font-size: 1rem; }
+    }
   </style>
 </head>
 <body>

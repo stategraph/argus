@@ -32,6 +32,27 @@
     .compare-form { margin-top: 0.5rem; font-size: 0.9rem; }
     .compare-form input { font-family: monospace; width: 7em; padding: 0.125rem 0.25rem; }
     .compare-form button { padding: 0.125rem 0.5rem; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .commits-page { padding: 0.75rem; }
+      .revision-item { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+      .revision-label { min-width: auto; }
+      .commit-item { flex-wrap: wrap; padding: 0.375rem; }
+      .commit-link { flex-wrap: wrap; gap: 0.25rem; }
+      .commit-sha { min-width: auto; }
+      .commit-author { min-width: auto; }
+    }
+
+    @media (max-width: 480px) {
+      .commits-page { padding: 0.5rem; }
+      .commits-page h1 { font-size: 1rem; }
+      .commits-page h2 { font-size: 0.9rem; }
+      .revision-item, .commit-item { font-size: 0.8rem; }
+      .revision-diff { font-size: 0.7rem; padding: 0.125rem 0.375rem; }
+      .compare-form { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+      .compare-form input { width: 5em; }
+    }
   </style>
 </head>
 <body>
