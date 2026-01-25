@@ -33,6 +33,23 @@
     .pull-author { color: #888; font-size: 0.85rem; white-space: nowrap; }
 
     .empty-state { color: #666; text-align: center; padding: 3rem; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .pulls-page { padding: 0.75rem; }
+      .pulls-filters { flex-wrap: wrap; }
+      .pull-row { flex-wrap: wrap; gap: 0.5rem; }
+      .pull-number { min-width: auto; }
+    }
+
+    @media (max-width: 480px) {
+      .pulls-page { padding: 0.5rem; }
+      .pulls-header h1 { font-size: 1rem; }
+      .filter-link { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+      .pull-link { padding: 0.5rem 0; }
+      .pull-title { font-size: 0.9rem; }
+      .pull-author { font-size: 0.8rem; }
+    }
   </style>
 </head>
 <body>

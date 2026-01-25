@@ -118,6 +118,23 @@
     .nav-links a:hover {
       background: rgba(0, 0, 0, 0.05);
     }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .repos-page { padding: 0.75rem; }
+      .repos-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+      .repos-header h1 { font-size: 1.25rem; }
+      .repo-meta { flex-wrap: wrap; gap: 0.75rem; }
+    }
+
+    @media (max-width: 480px) {
+      .repos-page { padding: 0.5rem; }
+      .repos-header h1 { font-size: 1.1rem; }
+      .repo-name { font-size: 0.95rem; }
+      .repo-description { font-size: 0.85rem; }
+      .repo-meta { font-size: 0.8rem; gap: 0.5rem; }
+      .search-input { padding: 0.5rem 0.625rem; font-size: 0.9rem; }
+    }
   </style>
 </head>
 <body>
