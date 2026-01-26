@@ -1,4 +1,5 @@
 import { DiffFile, DiffLine } from './diff-parser.js';
+import { detectLanguage, highlightCode } from './syntax-highlighter.js';
 
 // Escape HTML characters
 function escapeHtml(text: string): string {
@@ -26,15 +27,17 @@ const LINE_TYPE_PREFIXES: Record<ContentLineType, string> = {
 };
 
 // Render a single diff line
-function renderLine(
+async function renderLine(
   line: DiffLine,
   fileIndex: number,
   path: string,
   headSha: string,
   owner: string,
   repo: string,
-  prNumber: number
-): string {
+  prNumber: number,
+  language: string | null,
+  enableHighlighting: boolean
+): Promise<string> {
   const contentType = line.type as ContentLineType;
   const lineClass = LINE_TYPE_CLASSES[contentType];
   const oldNum = line.oldLineNum ?? '';
@@ -54,6 +57,17 @@ function renderLine(
     <a href="#${formId}" class="line-comment-btn" title="Add comment" aria-label="Add comment on line ${commentLine}">+</a>
   ` : '';
 
+  // Apply syntax highlighting if enabled
+  let contentHtml = escapeHtml(line.content);
+  if (enableHighlighting && language) {
+    try {
+      contentHtml = await highlightCode(line.content, language);
+    } catch (err) {
+      // Fall back to escaped HTML on error
+      contentHtml = escapeHtml(line.content);
+    }
+  }
+
   return `
     <tr class="diff-line ${lineClass}" id="${lineId}"
         data-path="${escapeHtml(path)}"
@@ -63,7 +77,7 @@ function renderLine(
       <td class="diff-line-num diff-line-num-old">${oldNum}</td>
       <td class="diff-line-num diff-line-num-new">${newNum}</td>
       <td class="diff-line-action">${commentBtn}</td>
-      <td class="diff-line-content"><span class="diff-line-prefix">${prefix}</span>${escapeHtml(line.content)}</td>
+      <td class="diff-line-content"><span class="diff-line-prefix">${prefix}</span>${contentHtml}</td>
     </tr>
     ${commentLine ? renderInlineCommentFormRow(formId, path, commentLine, commentSide, headSha, owner, repo, prNumber) : ''}`;
 }
@@ -121,12 +135,10 @@ function renderHunkHeader(header: string): string {
 }
 
 // Render a file diff
-export function renderFile(
+export async function renderFile(
   file: DiffFile,
   index: number,
   headSha: string,
-  truncated: boolean,
-  totalLines: number,
   owner: string,
   repo: string,
   prNumber: number,
@@ -139,8 +151,10 @@ export function renderFile(
     path: string;
     line: number | null;
     side: 'LEFT' | 'RIGHT';
-  }> = []
-): string {
+  }> = [],
+  isReviewed: boolean = false,
+  enableHighlighting: boolean = false
+): Promise<string> {
   const path = file.newPath || file.oldPath;
   const filename = path.split('/').pop() || path;
   const directory = path.substring(0, path.length - filename.length);
@@ -160,20 +174,32 @@ export function renderFile(
   };
   const badge = statusBadges[file.status] || statusBadges.modified;
 
-  // Truncation notice
-  const truncatedHtml = truncated
-    ? `<div class="truncated-notice">
-        Large diff truncated. Showing partial diff (${totalLines} total lines).
-        <button class="load-full-diff" data-path="${escapeHtml(path)}" type="button">
-          Load full diff
-        </button>
-      </div>`
-    : '';
+  // Detect language for syntax highlighting
+  const language = detectLanguage(path);
+
+  // Syntax toggle button
+  const syntaxToggle = language ? `
+    <button class="syntax-toggle" data-file-index="${index}" title="Toggle syntax highlighting">
+      ${enableHighlighting ? 'Syntax: ON' : 'Syntax: OFF'}
+    </button>
+  ` : '';
+
+  // Review checkbox
+  const reviewCheckbox = `
+    <span class="file-review-checkbox">
+      <input type="checkbox"
+             class="file-reviewed-toggle"
+             data-path="${escapeHtml(path)}"
+             ${isReviewed ? 'checked' : ''}
+             title="Mark as reviewed">
+      <label>Reviewed</label>
+    </span>
+  `;
 
   // Binary file
   if (file.isBinary) {
     return `
-      <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}" open>
+      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" open>
         <summary class="file-header" id="file-${index}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -182,7 +208,7 @@ export function renderFile(
               <span class="file-name">${escapeHtml(filename)}</span>
             </span>
           </span>
-          <span class="file-stats">${statsHtml}</span>
+          <span class="file-stats">${statsHtml}${syntaxToggle}${reviewCheckbox}</span>
         </summary>
         <div class="diff-content">
           <div class="diff-binary-notice">Binary file not shown</div>
@@ -193,7 +219,7 @@ export function renderFile(
   // Empty file
   if (file.hunks.length === 0) {
     return `
-      <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}" open>
+      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" open>
         <summary class="file-header" id="file-${index}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -202,7 +228,7 @@ export function renderFile(
               <span class="file-name">${escapeHtml(filename)}</span>
             </span>
           </span>
-          <span class="file-stats">${statsHtml}</span>
+          <span class="file-stats">${statsHtml}${syntaxToggle}${reviewCheckbox}</span>
         </summary>
         <div class="diff-content">
           <div class="diff-empty-notice">No changes</div>
@@ -222,12 +248,12 @@ export function renderFile(
     }
   }
 
-  // Render diff table
+  // Render diff table (await async renderLine calls)
   let tableRows = '';
   for (const hunk of file.hunks) {
     tableRows += renderHunkHeader(hunk.header);
     for (const line of hunk.lines) {
-      tableRows += renderLine(line, index, path, headSha, owner, repo, prNumber);
+      tableRows += await renderLine(line, index, path, headSha, owner, repo, prNumber, language, enableHighlighting);
 
       // Render comments for this line
       const lineNumber = line.type === 'del' ? line.oldLineNum : line.newLineNum;
@@ -243,7 +269,7 @@ export function renderFile(
   }
 
   return `
-    <details class="diff-file" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}" open>
+    <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}" open>
       <summary class="file-header" id="file-${index}">
         <span class="file-header-info">
           <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -252,9 +278,8 @@ export function renderFile(
             <span class="file-name">${escapeHtml(filename)}</span>
           </span>
         </span>
-        <span class="file-stats">${statsHtml}</span>
+        <span class="file-stats">${statsHtml}${syntaxToggle}${reviewCheckbox}</span>
       </summary>
-      ${truncatedHtml}
       <div class="diff-content">
         <table class="diff-table">
           <tbody>
@@ -456,4 +481,46 @@ export function renderSimpleHunk(hunk: import('./diff-parser.js').DiffHunk): str
         </tbody>
       </table>
     </div>`;
+}
+
+/**
+ * Render directory tree with collapsible sections
+ */
+export function renderDirectoryTree(
+  node: import('./file-tree-builder.js').DirectoryNode | import('./file-tree-builder.js').FileNode,
+  depth: number = 0
+): string {
+  if (node.type === 'file') {
+    // Render file
+    return node.fileData.renderedHtml || '';
+  }
+
+  // Directory node
+  if (depth === 0) {
+    // Root: render children directly without a wrapper
+    return Array.from(node.children.values())
+      .map(child => renderDirectoryTree(child, depth + 1))
+      .join('\n');
+  }
+
+  const { name, stats, path } = node;
+  const childrenHtml = Array.from(node.children.values())
+    .map(child => renderDirectoryTree(child, depth + 1))
+    .join('\n');
+
+  return `
+    <details class="diff-directory" open data-path="${escapeHtml(path)}">
+      <summary class="directory-header">
+        <span class="dir-icon">▶</span>
+        <span class="dir-name">${escapeHtml(name)}/</span>
+        <span class="dir-stats">
+          ${stats.totalFiles} ${stats.totalFiles === 1 ? 'file' : 'files'}
+          <span class="additions">+${stats.additions}</span>
+          <span class="deletions">-${stats.deletions}</span>
+        </span>
+      </summary>
+      <div class="directory-children">
+        ${childrenHtml}
+      </div>
+    </details>`;
 }

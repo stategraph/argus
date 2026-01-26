@@ -28,14 +28,18 @@
   init();
 
   function init() {
+    // Restore state on page load
+    restoreState();
+
     // Set up event listeners
     setupPolling();
     setupSidebarLinks();
     setupInlineComments();
-    setupLoadFullDiff();
     setupCommentControls();
     setupReplyButtons();
-    setupVimBindings();
+    setupFileReviewToggles();
+    setupDirectoryControls();
+    setupSyntaxToggle();
 
     // Dismiss banner
     if (dismissBannerBtn) {
@@ -53,6 +57,11 @@
     if (reloadLink) {
       reloadLink.href = window.location.href;
     }
+
+    // Save state before form submissions
+    document.querySelectorAll('form').forEach(form => {
+      form.addEventListener('submit', saveStateBeforeSubmit);
+    });
   }
 
   // Polling for updates
@@ -213,51 +222,6 @@
     });
   }
 
-  // Load full diff
-  function setupLoadFullDiff() {
-    diffContainer.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.load-full-diff');
-      if (!btn) return;
-
-      e.preventDefault();
-
-      const path = btn.dataset.path;
-      if (!path) return;
-
-      // Find the file element
-      const fileEl = btn.closest('.diff-file');
-      if (!fileEl) return;
-
-      // Show loading state
-      btn.textContent = 'Loading...';
-      btn.disabled = true;
-
-      try {
-        const url = `/pr/${config.owner}/${config.repo}/${config.prNumber}/file?path=${encodeURIComponent(path)}`;
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          throw new Error('Failed to load diff');
-        }
-
-        const html = await response.text();
-
-        // Replace the file element with the new HTML
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
-        const newFileEl = temp.firstElementChild;
-
-        if (newFileEl) {
-          fileEl.replaceWith(newFileEl);
-        }
-      } catch (err) {
-        console.error('Error loading full diff:', err);
-        btn.textContent = 'Load full diff (failed, retry)';
-        btn.disabled = false;
-      }
-    });
-  }
-
   // Expand/collapse all comments
   function setupCommentControls() {
     const expandAllBtn = document.getElementById('expand-all-comments');
@@ -326,196 +290,157 @@
     });
   }
 
-  // Vim key bindings
-  function setupVimBindings() {
-    let lastKeyTime = 0;
-    let lastKey = '';
+  // File review toggles
+  function setupFileReviewToggles() {
+    if (!diffContainer) return;
 
-    // Get tab navigation elements
-    const tabs = Array.from(document.querySelectorAll('.pr-tab'));
-    const getCurrentTab = () => tabs.findIndex(tab => tab.classList.contains('active'));
+    diffContainer.addEventListener('change', async (e) => {
+      const checkbox = e.target.closest('.file-reviewed-toggle');
+      if (!checkbox) return;
 
-    const switchTab = (index) => {
-      if (index >= 0 && index < tabs.length) {
-        tabs[index].click();
-      }
-    };
+      const path = checkbox.dataset.path;
 
-    // Get files in Files tab
-    const getFiles = () => Array.from(document.querySelectorAll('.diff-file'));
-    const getCommits = () => Array.from(document.querySelectorAll('.commit-item'));
-
-    let selectedFileIndex = 0;
-    let selectedCommitIndex = 0;
-
-    const highlightFile = (index) => {
-      const files = getFiles();
-      if (files.length === 0) return;
-
-      // Clamp index
-      selectedFileIndex = Math.max(0, Math.min(index, files.length - 1));
-
-      // Remove previous highlight
-      files.forEach(f => f.classList.remove('vim-selected'));
-
-      // Add highlight
-      const file = files[selectedFileIndex];
-      file.classList.add('vim-selected');
-      file.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-
-    const highlightCommit = (index) => {
-      const commits = getCommits();
-      if (commits.length === 0) return;
-
-      // Clamp index
-      selectedCommitIndex = Math.max(0, Math.min(index, commits.length - 1));
-
-      // Remove previous highlight
-      commits.forEach(c => c.classList.remove('vim-selected'));
-
-      // Add highlight
-      const commit = commits[selectedCommitIndex];
-      commit.classList.add('vim-selected');
-      commit.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-
-    document.addEventListener('keydown', (e) => {
-      // Don't intercept if user is typing in a form element
-      if (e.target.matches('input, textarea, select')) {
-        return;
-      }
-
-      const key = e.key.toLowerCase();
-      const now = Date.now();
-      const timeSinceLastKey = now - lastKeyTime;
-
-      // Handle 'gg' for go to top
-      if (lastKey === 'g' && key === 'g' && timeSinceLastKey < 500) {
-        e.preventDefault();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        lastKey = '';
-        return;
-      }
-
-      lastKey = key;
-      lastKeyTime = now;
-
-      // Tab navigation with h/l
-      if (key === 'h' || key === 'arrowleft') {
-        e.preventDefault();
-        const current = getCurrentTab();
-        switchTab(current - 1);
-        return;
-      }
-
-      if (key === 'l' || key === 'arrowright') {
-        e.preventDefault();
-        const current = getCurrentTab();
-        switchTab(current + 1);
-        return;
-      }
-
-      // Direct tab shortcuts
-      if (key === 'c') {
-        e.preventDefault();
-        switchTab(0); // Conversation
-        return;
-      }
-
-      if (key === 'm') {
-        e.preventDefault();
-        switchTab(1); // Commits
-        return;
-      }
-
-      if (key === 'f') {
-        e.preventDefault();
-        switchTab(2); // Files
-        return;
-      }
-
-      // Reload page
-      if (key === 'r') {
-        e.preventDefault();
-        window.location.reload();
-        return;
-      }
-
-      // Go to bottom
-      if (key === 'g' && e.shiftKey) {
-        e.preventDefault();
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        lastKey = '';
-        return;
-      }
-
-      // File/Commit navigation
-      const currentTab = getCurrentTab();
-
-      // In Files tab (index 2)
-      if (currentTab === 2) {
-        if (key === 'j' || key === 'arrowdown') {
-          e.preventDefault();
-          highlightFile(selectedFileIndex + 1);
-          return;
-        }
-
-        if (key === 'k' || key === 'arrowup') {
-          e.preventDefault();
-          highlightFile(selectedFileIndex - 1);
-          return;
-        }
-
-        if (key === 'o' || key === 'enter') {
-          e.preventDefault();
-          const files = getFiles();
-          if (files[selectedFileIndex]) {
-            const details = files[selectedFileIndex];
-            details.open = !details.open;
+      try {
+        const response = await fetch(
+          `/pr/${config.owner}/${config.repo}/${config.prNumber}/file-review`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_path: path, head_sha: config.headSha })
           }
-          return;
-        }
-      }
+        );
 
-      // In Commits tab (index 1)
-      if (currentTab === 1) {
-        if (key === 'j' || key === 'arrowdown') {
-          e.preventDefault();
-          highlightCommit(selectedCommitIndex + 1);
-          return;
+        const { reviewed } = await response.json();
+        checkbox.checked = reviewed;
+
+        const fileEl = checkbox.closest('.diff-file');
+        if (fileEl) {
+          fileEl.classList.toggle('file-reviewed', reviewed);
         }
 
-        if (key === 'k' || key === 'arrowup') {
-          e.preventDefault();
-          highlightCommit(selectedCommitIndex - 1);
-          return;
-        }
-
-        if (key === 'enter') {
-          e.preventDefault();
-          const commits = getCommits();
-          if (commits[selectedCommitIndex]) {
-            const link = commits[selectedCommitIndex].querySelector('a');
-            if (link) {
-              link.click();
-            }
-          }
-          return;
-        }
+        // Update review progress count
+        updateReviewProgress();
+      } catch (err) {
+        console.error('Failed to toggle review:', err);
+        checkbox.checked = !checkbox.checked; // Revert
       }
     });
+  }
 
-    // Reset selection index on tab switch (but don't auto-highlight)
-    tabs.forEach((tab, index) => {
-      tab.addEventListener('click', () => {
-        if (index === 2) {
-          selectedFileIndex = 0;
-        } else if (index === 1) {
-          selectedCommitIndex = 0;
-        }
+  function updateReviewProgress() {
+    const progressEl = document.getElementById('review-progress-count');
+    if (!progressEl) return;
+
+    const totalFiles = document.querySelectorAll('.diff-file').length;
+    const reviewedFiles = document.querySelectorAll('.file-reviewed-toggle:checked').length;
+    progressEl.textContent = `${reviewedFiles} / ${totalFiles}`;
+  }
+
+  // Directory controls
+  function setupDirectoryControls() {
+    const expandBtn = document.getElementById('expand-all-dirs');
+    const collapseBtn = document.getElementById('collapse-all-dirs');
+
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        document.querySelectorAll('.diff-directory').forEach(d => d.open = true);
       });
+    }
+
+    if (collapseBtn) {
+      collapseBtn.addEventListener('click', () => {
+        document.querySelectorAll('.diff-directory').forEach(d => d.open = false);
+      });
+    }
+  }
+
+  // Syntax highlighting toggle
+  function setupSyntaxToggle() {
+    if (!diffContainer) return;
+
+    diffContainer.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.syntax-toggle');
+      if (!btn) return;
+
+      const currentState = btn.textContent.trim().includes('ON');
+      const newState = !currentState;
+
+      try {
+        const response = await fetch(
+          `/pr/${config.owner}/${config.repo}/${config.prNumber}/syntax-toggle`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: newState })
+          }
+        );
+
+        if (response.ok) {
+          // Reload page to apply new highlighting state
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error('Failed to toggle syntax highlighting:', err);
+      }
     });
+  }
+
+  // State management for preserving context after form submissions
+  function captureState() {
+    const activeTab = document.querySelector('.pr-tab.active')?.dataset.tab || 'conversation';
+    const scrollY = window.scrollY;
+    const expandedFiles = Array.from(document.querySelectorAll('.diff-file[open]'))
+      .map(el => el.dataset.fileIndex || el.querySelector('[data-file-index]')?.dataset.fileIndex)
+      .filter(Boolean);
+
+    return { tab: activeTab, scroll: scrollY, files: expandedFiles };
+  }
+
+  function saveStateBeforeSubmit() {
+    const state = captureState();
+    const stateKey = `pr-state-${config.owner}/${config.repo}/${config.prNumber}`;
+    sessionStorage.setItem(stateKey, JSON.stringify(state));
+  }
+
+  function restoreState() {
+    const stateKey = `pr-state-${config.owner}/${config.repo}/${config.prNumber}`;
+    const stateJson = sessionStorage.getItem(stateKey);
+    if (!stateJson) return;
+
+    try {
+      const state = JSON.parse(stateJson);
+
+      // Restore tab
+      if (state.tab && state.tab !== 'conversation') {
+        const tabBtn = document.querySelector(`.pr-tab[data-tab="${state.tab}"]`);
+        if (tabBtn) {
+          tabBtn.click();
+        }
+      }
+
+      // Restore expanded files
+      if (state.files && state.files.length > 0) {
+        state.files.forEach(fileIndex => {
+          const fileEl = document.querySelector(`.diff-file[data-file-index="${fileIndex}"]`) ||
+                         document.querySelector(`[data-file-index="${fileIndex}"]`)?.closest('.diff-file');
+          if (fileEl && fileEl.tagName === 'DETAILS') {
+            fileEl.open = true;
+          }
+        });
+      }
+
+      // Restore scroll (delayed to allow rendering)
+      if (state.scroll) {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: state.scroll, behavior: 'instant' });
+        });
+      }
+
+      // Clear saved state after restoration
+      sessionStorage.removeItem(stateKey);
+    } catch (e) {
+      console.error('Failed to restore state:', e);
+    }
   }
 
   // Cleanup on page unload
