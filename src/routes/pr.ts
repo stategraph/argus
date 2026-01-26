@@ -893,7 +893,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: renderFile(diffFile, i, sha, false, 0, owner, repo, 0),
+              renderedHtml: await renderFile(diffFile, i, sha, owner, repo, 0, [], false, false),
             });
             continue;
           }
@@ -903,7 +903,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           parsedFiles.push({
             file: parsedFile,
             path: file.filename,
-            renderedHtml: renderFile(parsedFile, i, sha, false, 0, owner, repo, 0),
+            renderedHtml: await renderFile(parsedFile, i, sha, owner, repo, 0, [], false, false),
           });
         }
 

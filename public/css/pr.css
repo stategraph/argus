@@ -322,6 +322,33 @@
   color: #0066cc;
 }
 
+.dir-controls {
+  margin-left: auto;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.btn-tiny {
+  font-size: 0.7rem;
+  padding: 0.125rem 0.375rem;
+  background: none;
+  border: 1px solid #d1d5da;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #666;
+  font-family: inherit;
+}
+
+.btn-tiny:hover {
+  background: #f6f8fa;
+  color: #222;
+}
+
+/* Prevent summary arrow from triggering on button clicks */
+.directory-header button {
+  pointer-events: auto;
+}
+
 .dir-stats {
   margin-left: auto;
   font-size: 0.85rem;
