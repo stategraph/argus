@@ -713,6 +713,12 @@
       <div class="pr-tabs">
         <button class="pr-tab active" data-tab="conversation">Conversation</button>
         <button class="pr-tab" data-tab="commits">Commits <span style="background: #ddd; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= pr.commits %></span></button>
+        <button class="pr-tab" data-tab="checks">
+          Checks
+          <% if (checksSummary.total > 0) { %>
+            <span style="background: <%= checksSummary.state === 'success' ? '#2da44e' : checksSummary.state === 'failure' ? '#cf222e' : '#856404' %>; color: white; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= checksSummary.total %></span>
+          <% } %>
+        </button>
         <button class="pr-tab" data-tab="files">Files changed <span style="background: #ddd; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= files.length %></span></button>
       </div>
 
@@ -936,61 +942,125 @@
             </li>
           <% }) %>
         </ul>
+      </div>
 
-        <!-- Checks Section -->
-        <div style="margin-top: 2rem;">
-          <h2 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Checks</h2>
-          <div class="checks-summary checks-<%= checksSummary.state %>" style="margin-bottom: 0.75rem;">
-            <% if (checksSummary.total === 0) { %>
-              <span class="checks-none">No checks</span>
-            <% } else { %>
-              <span class="checks-passed"><%= checksSummary.passed %> passed</span>
-              <% if (checksSummary.failed > 0) { %>
-                <span class="checks-failed">, <%= checksSummary.failed %> failed</span>
-              <% } %>
-              <% if (checksSummary.pending > 0) { %>
-                <span class="checks-pending">, <%= checksSummary.pending %> pending</span>
-              <% } %>
-            <% } %>
-          </div>
-          <% if (checks.length > 0 || statuses.length > 0) { %>
-            <details class="checks-details">
-              <summary class="checks-toggle">Show all checks</summary>
-              <ul class="checks-list">
-                <% checks.forEach(check => { %>
-                  <li class="check-item check-<%= check.status === 'completed' ? check.conclusion : 'pending' %>">
-                    <span class="check-icon">
-                      <% if (check.status !== 'completed') { %>
-                        ◯
-                      <% } else if (check.conclusion === 'success' || check.conclusion === 'skipped') { %>
-                        ✓
-                      <% } else { %>
-                        ✗
-                      <% } %>
-                    </span>
-                    <a href="<%= check.html_url %>" target="_blank" rel="noopener" class="check-name" title="<%= check.name %>">
-                      <%= check.name %>
-                    </a>
-                  </li>
+      <!-- Checks Tab -->
+      <div class="pr-tab-content" data-tab-content="checks">
+        <div style="padding: 1rem 0;">
+          <% if (checksSummary.total === 0) { %>
+            <div style="text-align: center; padding: 3rem 1rem; color: #666;">
+              <div style="font-size: 3rem; margin-bottom: 1rem;">✓</div>
+              <h2 style="font-size: 1.1rem; margin-bottom: 0.5rem; font-weight: 600;">No checks configured</h2>
+              <p style="font-size: 0.9rem; color: #888;">This pull request doesn't have any checks configured.</p>
+            </div>
+          <% } else { %>
+            <!-- Checks Summary Header -->
+            <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #ddd;">
+              <h2 style="font-size: 1.1rem; margin: 0 0 0.75rem; font-weight: 600;">
+                <% if (checksSummary.state === 'success') { %>
+                  <span style="color: #1a7f37;">✓</span> All checks have passed
+                <% } else if (checksSummary.state === 'failure') { %>
+                  <span style="color: #cf222e;">✗</span> Some checks were not successful
+                <% } else { %>
+                  <span style="color: #856404;">◯</span> Some checks are in progress
+                <% } %>
+              </h2>
+              <div style="font-size: 0.9rem; color: #666;">
+                <span style="<%= checksSummary.passed > 0 ? 'color: #1a7f37; font-weight: 600;' : '' %>"><%= checksSummary.passed %> successful</span>
+                <% if (checksSummary.failed > 0) { %>
+                  <span style="color: #cf222e; font-weight: 600; margin-left: 0.5rem;"><%= checksSummary.failed %> failing</span>
+                <% } %>
+                <% if (checksSummary.pending > 0) { %>
+                  <span style="color: #856404; font-weight: 600; margin-left: 0.5rem;"><%= checksSummary.pending %> pending</span>
+                <% } %>
+              </div>
+            </div>
+
+            <!-- Checks List -->
+            <div class="checks-list-container">
+              <% if (checks.length > 0 || statuses.length > 0) { %>
+                <%
+                  // Combine checks and statuses
+                  const allChecks = [
+                    ...checks.map(check => ({
+                      type: 'check',
+                      name: check.name,
+                      status: check.status,
+                      conclusion: check.conclusion,
+                      url: check.html_url,
+                      started_at: check.started_at,
+                      completed_at: check.completed_at
+                    })),
+                    ...statuses.map(status => ({
+                      type: 'status',
+                      name: status.context,
+                      status: status.state === 'pending' ? 'pending' : 'completed',
+                      conclusion: status.state,
+                      url: status.target_url,
+                      started_at: status.created_at,
+                      completed_at: status.updated_at
+                    }))
+                  ];
+                %>
+                <% allChecks.forEach(item => { %>
+                  <div class="check-item-detailed" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 0.75rem; padding: 1rem;">
+                    <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                      <!-- Status Icon -->
+                      <div style="min-width: 1.5rem; text-align: center; font-size: 1.25rem; margin-top: 0.125rem;">
+                        <% if (item.status !== 'completed') { %>
+                          <span style="color: #856404;">◯</span>
+                        <% } else if (item.conclusion === 'success' || item.conclusion === 'skipped') { %>
+                          <span style="color: #1a7f37;">✓</span>
+                        <% } else { %>
+                          <span style="color: #cf222e;">✗</span>
+                        <% } %>
+                      </div>
+
+                      <!-- Check Details -->
+                      <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: baseline; margin-bottom: 0.25rem;">
+                          <h3 style="margin: 0; font-size: 0.95rem; font-weight: 600; color: #222;">
+                            <%= item.name %>
+                          </h3>
+                        </div>
+
+                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;">
+                          <% if (item.status !== 'completed') { %>
+                            <span style="color: #856404;">In progress...</span>
+                          <% } else if (item.conclusion === 'success') { %>
+                            <span style="color: #1a7f37;">Successful</span>
+                            <% if (item.completed_at) { %>
+                              · <%= new Date(item.completed_at).toLocaleString() %>
+                            <% } %>
+                          <% } else if (item.conclusion === 'skipped') { %>
+                            <span style="color: #666;">Skipped</span>
+                          <% } else if (item.conclusion === 'failure' || item.conclusion === 'error') { %>
+                            <span style="color: #cf222e;">Failed</span>
+                            <% if (item.completed_at) { %>
+                              · <%= new Date(item.completed_at).toLocaleString() %>
+                            <% } %>
+                          <% } else { %>
+                            <span><%= item.conclusion %></span>
+                          <% } %>
+                        </div>
+
+                        <% if (item.url) { %>
+                          <a href="<%= item.url %>"
+                             target="_blank"
+                             rel="noopener"
+                             style="font-size: 0.85rem; color: #0969da; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;">
+                            Details
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                              <path d="M3.75 2h3.5a.75.75 0 0 1 0 1.5h-3.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-3.5a.75.75 0 0 1 1.5 0v3.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2Zm6.854-1h4.146a.25.25 0 0 1 .25.25v4.146a.25.25 0 0 1-.427.177L13.03 4.03 9.28 7.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.75-3.75-1.543-1.543A.25.25 0 0 1 10.604 1Z"></path>
+                            </svg>
+                          </a>
+                        <% } %>
+                      </div>
+                    </div>
+                  </div>
                 <% }) %>
-                <% statuses.forEach(status => { %>
-                  <li class="check-item check-<%= status.state %>">
-                    <span class="check-icon">
-                      <% if (status.state === 'pending') { %>
-                        ◯
-                      <% } else if (status.state === 'success') { %>
-                        ✓
-                      <% } else { %>
-                        ✗
-                      <% } %>
-                    </span>
-                    <a href="<%= status.target_url %>" target="_blank" rel="noopener" class="check-name" title="<%= status.context %>">
-                      <%= status.context %>
-                    </a>
-                  </li>
-                <% }) %>
-              </ul>
-            </details>
+              <% } %>
+            </div>
           <% } %>
         </div>
       </div>
