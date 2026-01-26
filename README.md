@@ -15,7 +15,6 @@ This is a server-rendered alternative that loads pull requests immediately.
 - **Static rendering** - Server-rendered HTML that shows up instantly, every time. No client-side hydration.
 - **Fast for large diffs** - Smart chunking and collapsible files. No waiting for the client to render thousands of lines.
 - **Control over updates** - Get notified when PRs change, reload when you're ready. No surprise reflows.
-- **Keyboard navigation** - Browse files, toggle diffs, and comment without the mouse.
 - **Works with GitHub** - All comments, reviews, and merges sync through the GitHub API. Your workflow stays intact.
 
 ## Quick Start
@@ -27,11 +26,22 @@ This is a server-rendered alternative that loads pull requests immediately.
    ```bash
    export GITHUB_TOKEN=github_pat_your_token_here
    npm install
-   npm run migrate
-   npm run dev
+   npm run dev  # Automatically runs migrations
    ```
 
 3. **Open** http://localhost:3000
+
+## Configuration
+
+Optional environment variables:
+
+```bash
+PORT=3000                          # Server port (default: 3000)
+HOST=0.0.0.0                       # Server host (default: 0.0.0.0)
+DATABASE_PATH=./data/argus.db      # SQLite database path
+CACHE_TTL=60                       # API cache TTL in seconds (default: 60)
+BASE_URL=http://localhost:3000     # Base URL for redirects
+```
 
 ## Run With Docker
 

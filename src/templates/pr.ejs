@@ -999,37 +999,15 @@
       <div class="pr-tab-content" data-tab-content="files">
         <div class="pr-files">
           <h2>Files changed (<%= files.length %>)</h2>
+          <div class="review-progress">
+            <span id="review-progress-count"><%= reviewedFiles.length %> / <%= files.length %></span> files reviewed
+          </div>
+          <div class="files-toolbar">
+            <button id="expand-all-dirs" class="btn btn-small">Expand all directories</button>
+            <button id="collapse-all-dirs" class="btn btn-small">Collapse all directories</button>
+          </div>
           <div class="diff-container" id="diff-container">
-            <% files.forEach((f, i) => { %>
-              <div class="diff-file-wrapper">
-                <%- f.renderedHtml %>
-                <% if (f.comments && f.comments.length > 0) { %>
-                  <details class="file-comments">
-                    <summary class="file-comments-header">
-                      <span class="comments-count"><%= f.comments.length %> comment<%= f.comments.length !== 1 ? 's' : '' %></span>
-                    </summary>
-                    <div class="file-comments-list">
-                      <% f.comments.forEach(comment => { %>
-                        <div class="inline-comment" data-comment-id="<%= comment.id %>">
-                          <div class="inline-comment-header">
-                            <span class="comment-author"><%= comment.user.login %></span>
-                            <% if (comment.line) { %>
-                              <span class="comment-line">Line <%= comment.line %></span>
-                            <% } %>
-                            <time class="comment-time" datetime="<%= comment.created_at %>">
-                              <%= new Date(comment.created_at).toLocaleString() %>
-                            </time>
-                          </div>
-                          <div class="inline-comment-body markdown-body">
-                            <%- comment.renderedBody %>
-                          </div>
-                        </div>
-                      <% }) %>
-                    </div>
-                  </details>
-                <% } %>
-              </div>
-            <% }) %>
+            <%- fileTreeHtml %>
           </div>
         </div>
       </div>

@@ -21,11 +21,13 @@ import {
   mergePR,
 } from '../lib/github.js';
 import { query } from '../db/index.js';
-import { parsePatch, truncateFile, DiffFile, parseHunkString } from '../lib/diff-parser.js';
-import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk } from '../lib/diff-renderer.js';
+import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
+import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { config } from '../config.js';
 import { computeMergeBase, computeRangeDiff } from '../lib/git.js';
+import { getReviewedFiles, toggleFileReview } from '../lib/file-reviews.js';
+import { buildFileTree } from '../lib/file-tree-builder.js';
 
 interface PRParams {
   owner: string;
@@ -94,6 +96,26 @@ export async function prRoutes(fastify: FastifyInstance) {
           });
         }
 
+        // Get reviewed files for this user and PR revision
+        const reviewedFiles = request.user
+          ? getReviewedFiles(request.user.githubUserId, owner, repo, prNumber, pr.head.sha)
+          : [];
+        const reviewedFilesSet = new Set(reviewedFiles);
+
+        // Get syntax highlighting preference (default: true)
+        let enableHighlighting = true;
+        if (request.user) {
+          const prefKey = `syntax_${owner}/${repo}`;
+          const { rows } = query<{ preference_value: string }>(
+            `SELECT preference_value FROM user_preferences
+             WHERE user_id = ? AND preference_key = ?`,
+            [request.user.githubUserId, prefKey]
+          );
+          if (rows.length > 0) {
+            enableHighlighting = rows[0].preference_value === '1';
+          }
+        }
+
         // Parse and render diffs
         const parsedFiles: Array<{
           file: DiffFile;
@@ -125,7 +147,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: renderFile(diffFile, i, pr.head.sha, false, 0, owner, repo, prNumber, fileComments),
+              renderedHtml: await renderFile(diffFile, i, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting),
               sidebarHtml: renderFileSidebarItem(diffFile, i),
               truncated: false,
               totalLines: 0,
@@ -136,32 +158,32 @@ export async function prRoutes(fastify: FastifyInstance) {
           }
 
           const parsedFile = parsePatch(file.patch, file.filename, file.status);
-          const { truncatedFile, wasTruncated, totalLines } = truncateFile(
-            parsedFile,
-            config.ui.maxLinesPerFile
-          );
 
           parsedFiles.push({
             file: parsedFile,
             path: file.filename,
-            renderedHtml: renderFile(
-              truncatedFile,
+            renderedHtml: await renderFile(
+              parsedFile,
               i,
               pr.head.sha,
-              wasTruncated,
-              totalLines,
               owner,
               repo,
               prNumber,
-              fileComments
+              fileComments,
+              reviewedFilesSet.has(file.filename),
+              enableHighlighting
             ),
             sidebarHtml: renderFileSidebarItem(parsedFile, i),
-            truncated: wasTruncated,
-            totalLines,
+            truncated: false,
+            totalLines: 0,
             comments: fileComments,
             commentCount: fileComments.length,
           });
         }
+
+        // Build directory tree from files
+        const fileTree = buildFileTree(parsedFiles);
+        const fileTreeHtml = renderDirectoryTree(fileTree);
 
         // Summarize checks
         const checksSummary = summarizeChecks(checks, combinedStatus);
@@ -198,6 +220,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             renderedBody,
           },
           files: parsedFiles,
+          fileTreeHtml,
           issueComments: issueComments.map((c) => ({
             ...c,
             renderedBody: renderMarkdown(c.body),
@@ -220,6 +243,8 @@ export async function prRoutes(fastify: FastifyInstance) {
           fetchedAt,
           inlineCommentFormTemplate: renderInlineCommentForm(),
           pollIntervalMs: config.ui.pollIntervalMs,
+          config,
+          reviewedFiles,
         });
       } catch (err: any) {
         console.error('Error fetching PR:', err);
@@ -278,81 +303,6 @@ export async function prRoutes(fastify: FastifyInstance) {
       } catch (err: any) {
         console.error('Error fetching head SHA:', err);
         return reply.status(500).send({ error: 'Failed to fetch head SHA' });
-      }
-    }
-  );
-
-  // Load full file diff
-  fastify.get(
-    '/pr/:owner/:repo/:number/file',
-    async (
-      request: FastifyRequest<{
-        Params: PRParams;
-        Querystring: { path: string };
-      }>,
-      reply: FastifyReply
-    ) => {
-      if (!requireAuth(request, reply)) return;
-
-      const { owner, repo, number } = request.params;
-      const { path } = request.query;
-      const prNumber = parseInt(number, 10);
-
-      if (!path) {
-        return reply.status(400).send('Missing path parameter');
-      }
-
-      try {
-        const octokit = createUserOctokit(request.user!.accessToken);
-
-        // Fetch PR to get head SHA and review comments
-        const [pr, reviewComments] = await Promise.all([
-          fetchPR(octokit, owner, repo, prNumber),
-          fetchReviewComments(octokit, owner, repo, prNumber),
-        ]);
-
-        // Fetch files to get the specific file's patch
-        const files = await fetchPRFiles(octokit, owner, repo, prNumber);
-        const file = files.find((f) => f.filename === path);
-
-        if (!file) {
-          return reply.status(404).send('File not found');
-        }
-
-        if (!file.patch) {
-          return reply.send('<div class="diff-binary-notice">Binary file</div>');
-        }
-
-        // Get comments for this file
-        const fileComments = reviewComments
-          .filter((c) => c.path === path)
-          .map((c) => ({
-            ...c,
-            renderedBody: renderMarkdown(c.body),
-          }));
-
-        const parsedFile = parsePatch(file.patch, file.filename, file.status);
-
-        // Find the file index for data attributes
-        const fileIndex = files.findIndex((f) => f.filename === path);
-
-        const html = renderFile(
-          parsedFile,
-          fileIndex,
-          pr.head.sha,
-          false,
-          0,
-          owner,
-          repo,
-          prNumber,
-          fileComments
-        );
-
-        // Return just the diff content (without the outer wrapper since we're replacing)
-        return reply.type('text/html').send(html);
-      } catch (err: any) {
-        console.error('Error loading file diff:', err);
-        return reply.status(500).send('Failed to load file diff');
       }
     }
   );
@@ -555,6 +505,76 @@ export async function prRoutes(fastify: FastifyInstance) {
           user: request.user,
           message: `Failed to reply: ${err.message}`,
         });
+      }
+    }
+  );
+
+  // Toggle file review status
+  fastify.post(
+    '/pr/:owner/:repo/:number/file-review',
+    async (
+      request: FastifyRequest<{
+        Params: PRParams;
+        Body: { file_path: string; head_sha: string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      if (!requireAuth(request, reply)) return;
+
+      const { owner, repo, number } = request.params;
+      const { file_path, head_sha } = request.body;
+      const prNumber = parseInt(number, 10);
+
+      if (!file_path || !head_sha) {
+        return reply.status(400).send({ error: 'Missing required fields' });
+      }
+
+      try {
+        const isReviewed = toggleFileReview(
+          request.user!.githubUserId,
+          owner,
+          repo,
+          prNumber,
+          file_path,
+          head_sha
+        );
+
+        return reply.send({ reviewed: isReviewed });
+      } catch (err: any) {
+        console.error('Error toggling file review:', err);
+        return reply.status(500).send({ error: 'Failed to toggle review' });
+      }
+    }
+  );
+
+  // Toggle syntax highlighting
+  fastify.post(
+    '/pr/:owner/:repo/:number/syntax-toggle',
+    async (
+      request: FastifyRequest<{
+        Params: PRParams;
+        Body: { enabled: boolean };
+      }>,
+      reply: FastifyReply
+    ) => {
+      if (!requireAuth(request, reply)) return;
+
+      const { owner, repo } = request.params;
+      const { enabled } = request.body;
+
+      try {
+        const prefKey = `syntax_${owner}/${repo}`;
+        query(
+          `INSERT OR REPLACE INTO user_preferences
+           (user_id, preference_key, preference_value, updated_at)
+           VALUES (?, ?, ?, datetime('now'))`,
+          [request.user!.githubUserId, prefKey, enabled ? '1' : '0']
+        );
+
+        return reply.send({ enabled });
+      } catch (err: any) {
+        console.error('Error toggling syntax highlighting:', err);
+        return reply.status(500).send({ error: 'Failed to toggle syntax highlighting' });
       }
     }
   );

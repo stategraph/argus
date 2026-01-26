@@ -31,7 +31,6 @@ export const config = {
 
   // UI defaults
   ui: {
-    maxLinesPerFile: 80,
     pollIntervalMs: 45000,
   },
 
