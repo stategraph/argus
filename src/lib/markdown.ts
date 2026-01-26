@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import { nameToEmoji } from 'gemoji';
+import { getHighlighterInstance } from './syntax-highlighter.js';
 
 // Configure marked for safe rendering with GitHub-flavored markdown
 marked.use({
@@ -25,6 +26,44 @@ marked.use({
   },
 });
 
+// Async extension for syntax highlighting code blocks
+marked.use({
+  async: true,
+  renderer: {
+    code({ text, lang }: any): any {
+      // Return a promise for async rendering
+      return (async () => {
+        if (!lang) {
+          // No language specified, return plain code block
+          return `<pre><code>${escapeHtml(text)}</code></pre>`;
+        }
+
+        try {
+          const highlighter = await getHighlighterInstance();
+          const loadedLanguages = highlighter.getLoadedLanguages();
+
+          // Check if language is supported
+          if (!loadedLanguages.includes(lang as any)) {
+            // Language not supported, return plain code block
+            return `<pre><code class="language-${escapeHtml(lang)}">${escapeHtml(text)}</code></pre>`;
+          }
+
+          // Use Shiki to highlight the code
+          const html = highlighter.codeToHtml(text, {
+            lang,
+            theme: 'github-light',
+          });
+
+          return html;
+        } catch (err) {
+          console.error('Markdown code highlighting failed:', err);
+          return `<pre><code class="language-${escapeHtml(lang)}">${escapeHtml(text)}</code></pre>`;
+        }
+      })();
+    },
+  },
+});
+
 // Convert emoji shortcodes to actual emoji
 function convertEmoji(text: string): string {
   return text.replace(/:([a-z0-9_+-]+):/g, (match, name) => {
@@ -33,13 +72,13 @@ function convertEmoji(text: string): string {
 }
 
 // Render markdown to HTML
-export function renderMarkdown(markdown: string | null | undefined): string {
+export async function renderMarkdown(markdown: string | null | undefined): Promise<string> {
   if (!markdown) return '';
 
   try {
     // Convert emoji shortcodes (like :thumbsup:) to emoji before markdown processing
     const withEmoji = convertEmoji(markdown);
-    return marked(withEmoji) as string;
+    return await marked(withEmoji) as string;
   } catch (err) {
     console.error('Markdown rendering error:', err);
     return escapeHtml(markdown);

@@ -92,7 +92,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           }
           commentsByFile.get(path)!.push({
             ...comment,
-            renderedBody: renderMarkdown(comment.body),
+            renderedBody: await renderMarkdown(comment.body),
           });
         }
 
@@ -189,7 +189,7 @@ export async function prRoutes(fastify: FastifyInstance) {
         const checksSummary = summarizeChecks(checks, combinedStatus);
 
         // Render PR body as markdown
-        const renderedBody = renderMarkdown(pr.body);
+        const renderedBody = await renderMarkdown(pr.body);
 
         // Get current timestamp
         const fetchedAt = new Date().toISOString();
@@ -221,19 +221,19 @@ export async function prRoutes(fastify: FastifyInstance) {
           },
           files: parsedFiles,
           fileTreeHtml,
-          issueComments: issueComments.map((c) => ({
+          issueComments: await Promise.all(issueComments.map(async (c) => ({
             ...c,
-            renderedBody: renderMarkdown(c.body),
-          })),
-          reviewComments: reviewComments.map((c) => ({
+            renderedBody: await renderMarkdown(c.body),
+          }))),
+          reviewComments: await Promise.all(reviewComments.map(async (c) => ({
             ...c,
-            renderedBody: renderMarkdown(c.body || ''),
+            renderedBody: await renderMarkdown(c.body || ''),
             renderedHunk: c.diff_hunk ? renderSimpleHunk(parseHunkString(c.diff_hunk)) : '',
-          })),
-          reviews: reviews.map((r) => ({
+          }))),
+          reviews: await Promise.all(reviews.map(async (r) => ({
             ...r,
-            renderedBody: renderMarkdown(r.body),
-          })),
+            renderedBody: await renderMarkdown(r.body),
+          }))),
           timeline,
           checksSummary,
           checks,
