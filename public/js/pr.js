@@ -38,7 +38,8 @@
     setupCommentControls();
     setupReplyButtons();
     setupFileReviewToggles();
-    setupDirectoryControls();
+    setupDiffControls();
+    setupPerDirectoryControls();
     setupSyntaxToggle();
 
     // Dismiss banner
@@ -336,22 +337,69 @@
     progressEl.textContent = `${reviewedFiles} / ${totalFiles}`;
   }
 
-  // Directory controls
-  function setupDirectoryControls() {
-    const expandBtn = document.getElementById('expand-all-dirs');
-    const collapseBtn = document.getElementById('collapse-all-dirs');
+  // Diff controls
+  function setupDiffControls() {
+    const expandBtn = document.getElementById('expand-all-diffs');
+    const collapseBtn = document.getElementById('collapse-all-diffs');
 
     if (expandBtn) {
       expandBtn.addEventListener('click', () => {
-        document.querySelectorAll('.diff-directory').forEach(d => d.open = true);
+        // Expand both directories and files
+        document.querySelectorAll('.diff-directory, .diff-file').forEach(el => {
+          el.open = true;
+        });
       });
     }
 
     if (collapseBtn) {
       collapseBtn.addEventListener('click', () => {
-        document.querySelectorAll('.diff-directory').forEach(d => d.open = false);
+        // Collapse both directories and files
+        document.querySelectorAll('.diff-directory, .diff-file').forEach(el => {
+          el.open = false;
+        });
       });
     }
+  }
+
+  // Per-directory controls
+  function setupPerDirectoryControls() {
+    if (!diffContainer) return;
+
+    diffContainer.addEventListener('click', (e) => {
+      const target = e.target;
+
+      // Expand all in directory
+      if (target.classList.contains('dir-expand-all')) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const directory = target.closest('.diff-directory');
+        if (directory) {
+          const children = directory.querySelector('.directory-children');
+          if (children) {
+            children.querySelectorAll('.diff-directory, .diff-file').forEach(el => {
+              el.open = true;
+            });
+          }
+        }
+      }
+
+      // Collapse all in directory
+      if (target.classList.contains('dir-collapse-all')) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const directory = target.closest('.diff-directory');
+        if (directory) {
+          const children = directory.querySelector('.directory-children');
+          if (children) {
+            children.querySelectorAll('.diff-directory, .diff-file').forEach(el => {
+              el.open = false;
+            });
+          }
+        }
+      }
+    });
   }
 
   // Syntax highlighting toggle
@@ -388,12 +436,7 @@
   // State management for preserving context after form submissions
   function captureState() {
     const activeTab = document.querySelector('.pr-tab.active')?.dataset.tab || 'conversation';
-    const scrollY = window.scrollY;
-    const expandedFiles = Array.from(document.querySelectorAll('.diff-file[open]'))
-      .map(el => el.dataset.fileIndex || el.querySelector('[data-file-index]')?.dataset.fileIndex)
-      .filter(Boolean);
-
-    return { tab: activeTab, scroll: scrollY, files: expandedFiles };
+    return { tab: activeTab };
   }
 
   function saveStateBeforeSubmit() {
@@ -410,7 +453,7 @@
     try {
       const state = JSON.parse(stateJson);
 
-      // Restore tab
+      // Restore tab only
       if (state.tab && state.tab !== 'conversation') {
         const tabBtn = document.querySelector(`.pr-tab[data-tab="${state.tab}"]`);
         if (tabBtn) {
@@ -418,25 +461,6 @@
         }
       }
 
-      // Restore expanded files
-      if (state.files && state.files.length > 0) {
-        state.files.forEach(fileIndex => {
-          const fileEl = document.querySelector(`.diff-file[data-file-index="${fileIndex}"]`) ||
-                         document.querySelector(`[data-file-index="${fileIndex}"]`)?.closest('.diff-file');
-          if (fileEl && fileEl.tagName === 'DETAILS') {
-            fileEl.open = true;
-          }
-        });
-      }
-
-      // Restore scroll (delayed to allow rendering)
-      if (state.scroll) {
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: state.scroll, behavior: 'instant' });
-        });
-      }
-
-      // Clear saved state after restoration
       sessionStorage.removeItem(stateKey);
     } catch (e) {
       console.error('Failed to restore state:', e);

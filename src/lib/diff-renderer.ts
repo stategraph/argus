@@ -518,6 +518,10 @@ export function renderDirectoryTree(
           <span class="additions">+${stats.additions}</span>
           <span class="deletions">-${stats.deletions}</span>
         </span>
+        <span class="dir-controls">
+          <button class="btn-tiny dir-expand-all" title="Expand all diffs in this directory">Expand all</button>
+          <button class="btn-tiny dir-collapse-all" title="Collapse all diffs in this directory">Collapse all</button>
+        </span>
       </summary>
       <div class="directory-children">
         ${childrenHtml}
