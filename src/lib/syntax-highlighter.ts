@@ -36,6 +36,7 @@ export async function getHighlighterInstance(): Promise<Highlighter> {
         'bash',
         'dockerfile',
         'xml',
+        'ocaml',
       ],
     });
   }
@@ -79,6 +80,8 @@ export function detectLanguage(filePath: string): string | null {
     sql: 'sql',
     dockerfile: 'dockerfile',
     xml: 'xml',
+    ml: 'ocaml',
+    mli: 'ocaml',
   };
 
   return languageMap[ext] || null;
