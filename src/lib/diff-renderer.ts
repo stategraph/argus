@@ -188,11 +188,12 @@ export async function renderFile(
   const reviewCheckbox = `
     <span class="file-review-checkbox">
       <input type="checkbox"
+             id="file-reviewed-${index}"
              class="file-reviewed-toggle"
              data-path="${escapeHtml(path)}"
              ${isReviewed ? 'checked' : ''}
              title="Mark as reviewed">
-      <label>Reviewed</label>
+      <label for="file-reviewed-${index}">Reviewed</label>
     </span>
   `;
 

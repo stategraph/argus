@@ -54,6 +54,10 @@
   justify-content: space-between;
   list-style: none;
   font-size: 0.9rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid #ddd;
 }
 .file-header::-webkit-details-marker { display: none; }
 
@@ -84,8 +88,8 @@
   user-select: none;
 }
 
-.diff-line-action { width: 20px; text-align: center; background: #f9f9f9; }
-.line-comment-btn { display: none; color: #0066cc; text-decoration: none; font-size: 14px; }
+.diff-line-action { width: 20px; text-align: center; background: #f9f9f9; position: relative; }
+.line-comment-btn { display: none; color: #0066cc; text-decoration: none; font-size: 14px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
 .diff-line:hover .line-comment-btn { display: inline; }
 
 .diff-line-content { padding: 0 8px; white-space: pre-wrap; word-wrap: break-word; }
