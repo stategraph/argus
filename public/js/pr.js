@@ -42,6 +42,17 @@
     setupPerDirectoryControls();
     setupSyntaxToggle();
 
+    // Auto-switch to Files tab for historical/cross-revision/explicit-current views
+    if (config.isHistoricalView || config.isCrossRevisionView || config.isCurrentRevisionExplicit) {
+      const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
+      if (filesTab) {
+        filesTab.click();
+      }
+    }
+
+    // Revision pill dropdowns
+    setupRevisionDropdowns();
+
     // Dismiss banner
     if (dismissBannerBtn) {
       dismissBannerBtn.addEventListener('click', () => {
@@ -65,8 +76,34 @@
     });
   }
 
+  // Compare dropdown
+  function setupRevisionDropdowns() {
+    const toggle = document.querySelector('.compare-dropdown-toggle');
+    const dropdown = document.querySelector('.compare-dropdown');
+    if (!toggle || !dropdown) return;
+
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Close on outside click
+    document.addEventListener('click', () => {
+      if (dropdown) dropdown.style.display = 'none';
+    });
+
+    dropdown.addEventListener('click', (e) => e.stopPropagation());
+  }
+
   // Polling for updates
   function setupPolling() {
+    if (config.isHistoricalView || config.isCrossRevisionView) {
+      // Don't poll for updates when viewing historical/cross-revision
+      if (pollIntervalTextEl) {
+        pollIntervalTextEl.textContent = config.isCrossRevisionView ? 'Comparison view' : 'Historical view';
+      }
+      return;
+    }
     if (config.pollIntervalMs > 0) {
       pollingInterval = setInterval(checkForUpdates, config.pollIntervalMs);
     } else if (pollIntervalTextEl) {
