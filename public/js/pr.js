@@ -317,6 +317,8 @@
         const fileEl = checkbox.closest('.diff-file');
         if (fileEl) {
           fileEl.classList.toggle('file-reviewed', reviewed);
+          // Collapse diff when marked as reviewed, expand when unmarked
+          fileEl.open = !reviewed;
         }
 
         // Update review progress count

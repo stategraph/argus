@@ -184,7 +184,7 @@ export async function renderFile(
     </button>
   ` : '';
 
-  // Review checkbox
+  // Review checkbox — collapses the diff when checked (via client-side JS)
   const reviewCheckbox = `
     <span class="file-review-checkbox">
       <input type="checkbox"
