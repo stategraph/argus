@@ -184,7 +184,7 @@ export async function renderFile(
     </button>
   ` : '';
 
-  // Review checkbox
+  // Review checkbox — collapses the diff when checked (via client-side JS)
   const reviewCheckbox = `
     <span class="file-review-checkbox">
       <input type="checkbox"
@@ -199,7 +199,7 @@ export async function renderFile(
   // Binary file
   if (file.isBinary) {
     return `
-      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" open>
+      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" ${isReviewed ? '' : 'open'}>
         <summary class="file-header" id="file-${index}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -219,7 +219,7 @@ export async function renderFile(
   // Empty file
   if (file.hunks.length === 0) {
     return `
-      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" open>
+      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" ${isReviewed ? '' : 'open'}>
         <summary class="file-header" id="file-${index}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -269,7 +269,7 @@ export async function renderFile(
   }
 
   return `
-    <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}" open>
+    <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}" ${isReviewed ? '' : 'open'}>
       <summary class="file-header" id="file-${index}">
         <span class="file-header-info">
           <span class="status-badge ${badge.class}">${badge.text}</span>
