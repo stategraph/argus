@@ -54,6 +54,10 @@
   justify-content: space-between;
   list-style: none;
   font-size: 0.9rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid #ddd;
 }
 .file-header::-webkit-details-marker { display: none; }
 
