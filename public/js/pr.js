@@ -356,6 +356,10 @@
           fileEl.classList.toggle('file-reviewed', reviewed);
           // Collapse diff when marked as reviewed, expand when unmarked
           fileEl.open = !reviewed;
+          // Scroll collapsed file into view so the user can see it and the next file
+          if (reviewed) {
+            fileEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
         }
 
         // Update review progress count
