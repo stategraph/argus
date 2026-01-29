@@ -25,7 +25,7 @@ import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
 import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { config } from '../config.js';
-import { computeMergeBase, computeRangeDiff } from '../lib/git.js';
+import { computeMergeBase, computeRangeDiff, computeCrossDiff } from '../lib/git.js';
 import { getReviewedFiles, toggleFileReview } from '../lib/file-reviews.js';
 import { buildFileTree } from '../lib/file-tree-builder.js';
 
@@ -40,13 +40,17 @@ export async function prRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/pr/:owner/:repo/:number',
     async (
-      request: FastifyRequest<{ Params: PRParams }>,
+      request: FastifyRequest<{ Params: PRParams; Querystring: { revision?: string; from_revision?: string; to_revision?: string } }>,
       reply: FastifyReply
     ) => {
       if (!requireAuth(request, reply)) return;
 
       const { owner, repo, number } = request.params;
       const prNumber = parseInt(number, 10);
+      const revisionParam = (request.query as { revision?: string }).revision;
+      const isCurrentRevisionExplicit = revisionParam === 'current';
+      const fromRevisionParam = (request.query as { from_revision?: string }).from_revision;
+      const toRevisionParam = (request.query as { to_revision?: string }).to_revision;
 
       if (isNaN(prNumber)) {
         return reply.status(400).view('error', {
@@ -116,6 +120,80 @@ export async function prRoutes(fastify: FastifyInstance) {
           }
         }
 
+        // Backfill all historical revisions from GitHub timeline
+        await backfillRevisions(
+          owner,
+          repo,
+          prNumber,
+          pr.base.ref,
+          pr.base.sha,
+          pr.head.ref,
+          pr.head.sha,
+          request.user!.accessToken,
+          octokit
+        );
+
+        // Get all seen revisions
+        const revisions = getRevisions(owner, repo, prNumber);
+
+        // Historical revision view
+        let isHistoricalView = false;
+        let selectedRevisionId: number | null = null;
+        let historicalFiles = files;
+
+        // Cross-revision comparison view
+        let isCrossRevisionView = false;
+        let fromRevisionId: number | null = null;
+        let toRevisionId: number | null = null;
+
+        if (fromRevisionParam && toRevisionParam) {
+          const fromId = parseInt(fromRevisionParam, 10);
+          const toId = parseInt(toRevisionParam, 10);
+          if (!isNaN(fromId) && !isNaN(toId)) {
+            const fromRev = revisions.find(r => r.id === fromId);
+            const toRev = revisions.find(r => r.id === toId);
+            if (fromRev && toRev) {
+              isCrossRevisionView = true;
+              fromRevisionId = fromId;
+              toRevisionId = toId;
+
+              // Two-dot git diff between the two head SHAs
+              historicalFiles = await computeCrossDiff(
+                owner, repo, fromRev.head_sha, toRev.head_sha, request.user!.accessToken
+              );
+            }
+          }
+        } else if (revisionParam) {
+          const revId = parseInt(revisionParam, 10);
+          if (!isNaN(revId)) {
+            const selectedRev = revisions.find(r => r.id === revId);
+            if (selectedRev && selectedRev.head_sha !== pr.head.sha) {
+              isHistoricalView = true;
+              selectedRevisionId = revId;
+
+              // Compute merge-base if missing
+              let mergeBase = selectedRev.merge_base_sha;
+              if (!mergeBase) {
+                mergeBase = await computeMergeBase(
+                  owner,
+                  repo,
+                  selectedRev.base_sha,
+                  selectedRev.head_sha,
+                  request.user!.accessToken
+                );
+                query(
+                  `UPDATE pr_revisions SET merge_base_sha = ? WHERE id = ?`,
+                  [mergeBase, revId]
+                );
+              }
+
+              // Reconstruct historical diff
+              const comparison = await compareCommits(octokit, owner, repo, mergeBase, selectedRev.head_sha);
+              historicalFiles = comparison.files;
+            }
+          }
+        }
+
         // Parse and render diffs
         const parsedFiles: Array<{
           file: DiffFile;
@@ -128,9 +206,10 @@ export async function prRoutes(fastify: FastifyInstance) {
           commentCount: number;
         }> = [];
 
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const fileComments = commentsByFile.get(file.filename) || [];
+        const filesToRender = (isHistoricalView || isCrossRevisionView) ? historicalFiles : files;
+        for (let i = 0; i < filesToRender.length; i++) {
+          const file = filesToRender[i];
+          const fileComments = (isHistoricalView || isCrossRevisionView) ? [] : (commentsByFile.get(file.filename) || []);
 
           if (!file.patch) {
             // Binary file or no changes
@@ -194,22 +273,6 @@ export async function prRoutes(fastify: FastifyInstance) {
         // Get current timestamp
         const fetchedAt = new Date().toISOString();
 
-        // Backfill all historical revisions from GitHub timeline
-        await backfillRevisions(
-          owner,
-          repo,
-          prNumber,
-          pr.base.ref,
-          pr.base.sha,
-          pr.head.ref,
-          pr.head.sha,
-          request.user!.accessToken,
-          octokit
-        );
-
-        // Get all seen revisions
-        const revisions = getRevisions(owner, repo, prNumber);
-
         return reply.view('pr', {
           title: `#${prNumber} ${pr.title} - Argus`,
           user: request.user,
@@ -239,6 +302,12 @@ export async function prRoutes(fastify: FastifyInstance) {
           checks,
           statuses: combinedStatus.statuses,
           revisions,
+          isHistoricalView,
+          selectedRevisionId,
+          isCrossRevisionView,
+          fromRevisionId,
+          toRevisionId,
+          isCurrentRevisionExplicit,
           commits,
           fetchedAt,
           inlineCommentFormTemplate: renderInlineCommentForm(),

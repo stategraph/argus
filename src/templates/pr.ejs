@@ -1098,9 +1098,71 @@
       <div class="pr-tab-content" data-tab-content="files">
         <div class="pr-files">
           <h2>Files changed (<%= files.length %>)</h2>
+          <% if (revisions && revisions.length > 1) { %>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; background: #f6f8fa; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; flex-wrap: wrap;">
+              <span style="color: #666; font-weight: 600;">Revision:</span>
+              <% const sortedRevs = [...revisions].reverse(); %>
+              <% sortedRevs.forEach((rev, i) => { %>
+                <% const isLast = i === sortedRevs.length - 1; %>
+                <% const label = isLast ? 'Current' : String(i + 1); %>
+                <% const isSelected = isHistoricalView ? rev.id === selectedRevisionId : (isCrossRevisionView ? (rev.id === fromRevisionId || rev.id === toRevisionId) : isLast); %>
+                <% const isFromRev = isCrossRevisionView && rev.id === fromRevisionId; %>
+                <% const isToRev = isCrossRevisionView && rev.id === toRevisionId; %>
+                <% const pillBg = isFromRev ? '#8250df' : isToRev ? '#0969da' : (isSelected ? '#0969da' : 'white'); %>
+                <% const pillColor = isSelected ? 'white' : '#0969da'; %>
+                <% const pillHref = isLast ? '/pr/' + owner + '/' + repo + '/' + pr.number + '?revision=current' : '/pr/' + owner + '/' + repo + '/' + pr.number + '?revision=' + rev.id; %>
+                <a href="<%= pillHref %>" style="background: <%= pillBg %>; color: <%= pillColor %>; padding: 0.125rem 0.5rem; border-radius: 3px; text-decoration: none; border: 1px solid <%= isSelected ? pillBg : '#ddd' %>; font-weight: <%= isSelected ? '600' : 'normal' %>;"><%= label %></a>
+              <% }) %>
+              <%
+                // Determine which revision index is currently active
+                let currentRevIndex = sortedRevs.length - 1; // default: last = Current
+                if (isHistoricalView && selectedRevisionId) {
+                  currentRevIndex = sortedRevs.findIndex(r => r.id === selectedRevisionId);
+                }
+                const currentRevId = sortedRevs[currentRevIndex].id;
+                const isOnLastRevision = currentRevIndex === sortedRevs.length - 1;
+                const hasLaterRevisions = currentRevIndex < sortedRevs.length - 1;
+              %>
+              <% if (!isCrossRevisionView) { %>
+                <div style="position: relative; display: inline-block; margin-left: 0.5rem;">
+                  <span class="compare-dropdown-toggle" style="padding: 0.125rem 0.5rem; border-radius: 3px; cursor: <%= hasLaterRevisions ? 'pointer' : 'default' %>; border: 1px solid #ddd; background: white; color: <%= hasLaterRevisions ? '#0969da' : '#999' %>; user-select: none; <%= !hasLaterRevisions ? 'opacity: 0.5;' : '' %>">Compare to...</span>
+                  <% if (hasLaterRevisions) { %>
+                    <div class="compare-dropdown" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 200px; padding: 0.25rem 0;">
+                      <% for (let ti = currentRevIndex + 1; ti < sortedRevs.length; ti++) { %>
+                        <% const toRev = sortedRevs[ti]; %>
+                        <% const toLabel = ti === sortedRevs.length - 1 ? 'Current' : 'Revision ' + String(ti + 1); %>
+                        <a href="/pr/<%= owner %>/<%= repo %>/<%= pr.number %>?from_revision=<%= currentRevId %>&to_revision=<%= toRev.id %>" style="display: block; padding: 0.375rem 0.75rem; color: #0969da; text-decoration: none; font-size: 0.85rem; white-space: nowrap;"><%= toLabel %> <span style="color: #999; font-family: monospace; font-size: 0.8rem;">(<%= toRev.head_sha.slice(0, 7) %>)</span></a>
+                      <% } %>
+                    </div>
+                  <% } %>
+                </div>
+              <% } %>
+              <% if (isCrossRevisionView) { %>
+                <%
+                  const fromRevForReset = sortedRevs.find(r => r.id === fromRevisionId);
+                  const fromIsCurrentHead = fromRevForReset && fromRevForReset.head_sha === pr.head.sha;
+                  const resetHref = fromIsCurrentHead
+                    ? '/pr/' + owner + '/' + repo + '/' + pr.number + '?revision=current'
+                    : '/pr/' + owner + '/' + repo + '/' + pr.number + '?revision=' + fromRevisionId;
+                %>
+                <a href="<%= resetHref %>" style="margin-left: 0.5rem; padding: 0.125rem 0.5rem; border-radius: 3px; color: #cf222e; text-decoration: none; border: 1px solid #cf222e; font-size: 0.85rem;">Reset</a>
+              <% } %>
+            </div>
+          <% } %>
+          <% if (isCrossRevisionView) { %>
+            <div style="background: #ddf4ff; border: 1px solid #54aeff; border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.85rem; color: #0550ae;">
+              Comparing revision changes only. Comments and review status are not shown.
+            </div>
+          <% } else if (isHistoricalView) { %>
+            <div style="background: #fff8c5; border: 1px solid #d4a72c; border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.85rem; color: #6a5300;">
+              Viewing historical revision. Comments and review status are not shown for past revisions.
+            </div>
+          <% } %>
+          <% if (!isHistoricalView && !isCrossRevisionView) { %>
           <div class="review-progress">
             <span id="review-progress-count"><%= reviewedFiles.length %> / <%= files.length %></span> files reviewed
           </div>
+          <% } %>
           <div class="files-toolbar">
             <button id="expand-all-diffs" class="btn btn-small">Expand all diffs</button>
             <button id="collapse-all-diffs" class="btn btn-small">Collapse all diffs</button>
@@ -1239,7 +1301,10 @@
       prNumber: <%= pr.number %>,
       headSha: '<%= pr.head.sha %>',
       fetchedAt: '<%= fetchedAt %>',
-      pollIntervalMs: <%= pollIntervalMs %>
+      pollIntervalMs: <%= pollIntervalMs %>,
+      isHistoricalView: <%= isHistoricalView ? 'true' : 'false' %>,
+      isCrossRevisionView: <%= isCrossRevisionView ? 'true' : 'false' %>,
+      isCurrentRevisionExplicit: <%= isCurrentRevisionExplicit ? 'true' : 'false' %>
     };
 
     // Tab switching

@@ -227,6 +227,119 @@ export async function computeRangeDiff(
   }
 }
 
+/**
+ * Compute a two-dot diff between two commits, returning file-level patches
+ * similar to GitHub's PRFile format.
+ */
+export async function computeCrossDiff(
+  owner: string,
+  repo: string,
+  fromSha: string,
+  toSha: string,
+  token: string
+): Promise<Array<{
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  patch?: string;
+}>> {
+  const repoPath = getRepoPath(owner, repo);
+
+  await ensureRepo(owner, repo, token);
+  await fetchRefs(owner, repo, [fromSha, toSha], token);
+
+  // Get the list of changed files with stats
+  const numstatResult = await execGit(
+    ['diff', '--numstat', fromSha, toSha],
+    repoPath,
+    token
+  );
+
+  // Get the full diff with patches
+  const diffResult = await execGit(
+    ['diff', '--no-color', fromSha, toSha],
+    repoPath,
+    token
+  );
+
+  // Get file statuses (A/M/D/R)
+  const statusResult = await execGit(
+    ['diff', '--name-status', fromSha, toSha],
+    repoPath,
+    token
+  );
+
+  // Parse name-status into a map
+  const statusMap = new Map<string, string>();
+  for (const line of statusResult.stdout.trim().split('\n')) {
+    if (!line) continue;
+    const parts = line.split('\t');
+    const statusChar = parts[0][0]; // R100 -> R
+    const filename = parts.length > 2 ? parts[2] : parts[1]; // renamed: use new name
+    const statusName =
+      statusChar === 'A' ? 'added' :
+      statusChar === 'D' ? 'removed' :
+      statusChar === 'R' ? 'renamed' :
+      statusChar === 'C' ? 'copied' :
+      'modified';
+    statusMap.set(filename, statusName);
+  }
+
+  // Parse numstat for additions/deletions
+  const statsMap = new Map<string, { additions: number; deletions: number }>();
+  for (const line of numstatResult.stdout.trim().split('\n')) {
+    if (!line) continue;
+    const parts = line.split('\t');
+    const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10);
+    const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10);
+    const filename = parts[2];
+    statsMap.set(filename, { additions, deletions });
+  }
+
+  // Split full diff into per-file patches
+  const files: Array<{
+    filename: string;
+    status: string;
+    additions: number;
+    deletions: number;
+    patch?: string;
+  }> = [];
+
+  const diffOutput = diffResult.stdout;
+  const fileDiffs = diffOutput.split(/^diff --git /m).slice(1);
+
+  for (const fileDiff of fileDiffs) {
+    const lines = fileDiff.split('\n');
+    // Extract filename from the diff header: "a/path b/path"
+    const headerMatch = lines[0].match(/^a\/(.*?) b\/(.*)$/);
+    if (!headerMatch) continue;
+    const filename = headerMatch[2];
+
+    // Find where the patch starts (after the header lines)
+    let patchStartIdx = -1;
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].startsWith('@@')) {
+        patchStartIdx = i;
+        break;
+      }
+    }
+
+    const patch = patchStartIdx >= 0 ? lines.slice(patchStartIdx).join('\n').trimEnd() : undefined;
+    const stats = statsMap.get(filename) || { additions: 0, deletions: 0 };
+
+    files.push({
+      filename,
+      status: statusMap.get(filename) || 'modified',
+      additions: stats.additions,
+      deletions: stats.deletions,
+      patch,
+    });
+  }
+
+  return files;
+}
+
 export function cleanupGitProcesses(): void {
   if (activeProcesses.size === 0) return;
 
