@@ -348,6 +348,7 @@
       if (!checkbox) return;
 
       const path = checkbox.dataset.path;
+      const fileSha = checkbox.dataset.fileSha;
 
       try {
         const response = await fetch(
@@ -355,9 +356,13 @@
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file_path: path, head_sha: config.headSha })
+            body: JSON.stringify({ file_path: path, head_sha: config.headSha, file_sha: fileSha })
           }
         );
+
+        if (!response.ok) {
+          throw new Error('Server returned ' + response.status);
+        }
 
         const { reviewed } = await response.json();
         checkbox.checked = reviewed;

@@ -10,7 +10,7 @@ import { config } from './config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-import { initDb, closeDb } from './db/index.js';
+import { initDb, closeDb, query } from './db/index.js';
 import { cleanupOctokit, initOctokit } from './lib/github.js';
 import { cleanupGitProcesses } from './lib/git.js';
 import { authRoutes } from './routes/auth.js';
@@ -74,6 +74,17 @@ async function start() {
     await fastify.register(repoRoutes);
     await fastify.register(prRoutes);
     await fastify.register(dashboardRoutes);
+
+    // Clean up old file reviews on startup and daily
+    const cleanupOldFileReviews = () => {
+      try {
+        query(`DELETE FROM file_reviews WHERE reviewed_at < datetime('now', '-30 days')`);
+      } catch (err) {
+        console.error('Failed to clean up old file reviews:', err);
+      }
+    };
+    cleanupOldFileReviews();
+    setInterval(cleanupOldFileReviews, 24 * 60 * 60 * 1000);
 
     // Start server
     await fastify.listen({ port: config.port, host: config.host });

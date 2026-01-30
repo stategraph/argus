@@ -102,9 +102,17 @@ export async function prRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Get reviewed files for this user and PR revision
+        // Build map of filename → blob SHA for cross-revision review persistence
+        const fileShaMap = new Map<string, string>();
+        for (const file of files) {
+          if (file.sha) {
+            fileShaMap.set(file.filename, file.sha);
+          }
+        }
+
+        // Get reviewed files for this user and PR
         const reviewedFiles = request.user
-          ? getReviewedFiles(request.user.githubUserId, owner, repo, prNumber, pr.head.sha)
+          ? getReviewedFiles(request.user.githubUserId, owner, repo, prNumber, fileShaMap)
           : [];
         const reviewedFilesSet = new Set(reviewedFiles);
 
@@ -141,7 +149,7 @@ export async function prRoutes(fastify: FastifyInstance) {
         // Historical revision view
         let isHistoricalView = false;
         let selectedRevisionId: number | null = null;
-        let historicalFiles: Array<{ filename: string; status: string; additions: number; deletions: number; patch?: string }> = files;
+        let historicalFiles: Array<{ filename: string; status: string; additions: number; deletions: number; patch?: string; sha?: string }> = files;
 
         // Cross-revision comparison view
         let isCrossRevisionView = false;
@@ -248,7 +256,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: await renderFile(diffFile, slug, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting),
+              renderedHtml: await renderFile(diffFile, slug, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting, file.sha || ''),
               sidebarHtml: renderFileSidebarItem(diffFile, slug),
               truncated: false,
               totalLines: 0,
@@ -273,7 +281,8 @@ export async function prRoutes(fastify: FastifyInstance) {
               prNumber,
               fileComments,
               reviewedFilesSet.has(file.filename),
-              enableHighlighting
+              enableHighlighting,
+              file.sha || ''
             ),
             sidebarHtml: renderFileSidebarItem(parsedFile, slug),
             truncated: false,
@@ -622,14 +631,14 @@ export async function prRoutes(fastify: FastifyInstance) {
     async (
       request: FastifyRequest<{
         Params: PRParams;
-        Body: { file_path: string; head_sha: string };
+        Body: { file_path: string; head_sha: string; file_sha: string };
       }>,
       reply: FastifyReply
     ) => {
       if (!requireAuth(request, reply)) return;
 
       const { owner, repo, number } = request.params;
-      const { file_path, head_sha } = request.body;
+      const { file_path, head_sha, file_sha } = request.body;
       const prNumber = parseInt(number, 10);
 
       if (!file_path || !head_sha) {
@@ -643,7 +652,8 @@ export async function prRoutes(fastify: FastifyInstance) {
           repo,
           prNumber,
           file_path,
-          head_sha
+          head_sha,
+          file_sha || ''
         );
 
         return reply.send({ reviewed: isReviewed });
