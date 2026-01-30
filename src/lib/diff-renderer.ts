@@ -200,7 +200,7 @@ export async function renderFile(
   // Binary file
   if (file.isBinary) {
     return `
-      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" ${isReviewed ? '' : 'open'}>
+      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
         <summary class="file-header" id="file-${index}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -220,7 +220,7 @@ export async function renderFile(
   // Empty file
   if (file.hunks.length === 0) {
     return `
-      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" ${isReviewed ? '' : 'open'}>
+      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
         <summary class="file-header" id="file-${index}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
@@ -270,7 +270,7 @@ export async function renderFile(
   }
 
   return `
-    <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}" ${isReviewed ? '' : 'open'}>
+    <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
       <summary class="file-header" id="file-${index}">
         <span class="file-header-info">
           <span class="status-badge ${badge.class}">${badge.text}</span>

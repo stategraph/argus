@@ -10,12 +10,18 @@
   <style>
     /* Minimal layout */
     .pr-container {
-      max-width: 1200px;
+      max-width: 100%;
       margin: 0 auto;
-      padding: 1rem;
+      padding: 1rem 2rem;
       display: grid;
-      grid-template-columns: 1fr 280px;
-      gap: 2rem;
+      grid-template-columns: 200px 1fr 280px;
+      gap: 2.5rem;
+    }
+
+    .pr-left-sidebar {
+      align-self: start;
+      position: sticky;
+      top: 1rem;
     }
 
     .pr-main-content {
@@ -27,11 +33,11 @@
     }
 
     /* Responsive - Tablet */
-    @media (max-width: 900px) {
+    @media (max-width: 1100px) {
       .pr-container {
-        grid-template-columns: 1fr 220px;
+        grid-template-columns: 180px 1fr 220px;
         gap: 1.5rem;
-        padding: 0.75rem;
+        padding: 0.75rem 1rem;
       }
     }
 
@@ -42,6 +48,10 @@
         flex-direction: column;
         gap: 1rem;
         padding: 0.5rem;
+      }
+      .pr-left-sidebar {
+        position: static;
+        order: 0;
       }
       .pr-right-sidebar {
         position: static;
@@ -687,6 +697,23 @@
   <div class="review-form-overlay" id="review-form-overlay"></div>
 
   <div class="pr-container">
+    <!-- Left Sidebar: Review Progress -->
+    <aside class="pr-left-sidebar" id="pr-left-sidebar">
+      <% if (!isHistoricalView && !isCrossRevisionView) { %>
+      <div id="review-progress-panel" style="background: #f0f4f9; border: 1px solid #d0d7de; border-radius: 6px; padding: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div style="font-weight: 600; font-size: 0.85rem; color: #1f2328; margin-bottom: 0.5rem;">Review Progress</div>
+        <div style="font-weight: 700; font-size: 1.5rem; color: #0969da; margin-bottom: 0.5rem;" id="review-progress-percent"><%= totalLines > 0 ? Math.round(reviewedLines / totalLines * 100) : 0 %>%</div>
+        <div style="background: #d0d7de; border-radius: 3px; height: 6px; margin-bottom: 0.75rem; overflow: hidden;">
+          <div id="review-progress-bar" style="background: #0969da; height: 100%; border-radius: 3px; transition: width 0.3s ease; width: <%= totalLines > 0 ? Math.round(reviewedLines / totalLines * 100) : 0 %>%;"></div>
+        </div>
+        <div style="font-size: 0.8rem; color: #656d76; line-height: 1.6;">
+          <div><span id="review-progress-files"><%= reviewedFiles.length %></span> / <%= files.length %> files</div>
+          <div><span id="review-progress-lines"><%= reviewedLines %></span> / <%= totalLines %> lines</div>
+        </div>
+      </div>
+      <% } %>
+    </aside>
+
     <!-- Main content -->
     <div class="pr-main-content">
       <!-- PR Header -->
@@ -1158,11 +1185,6 @@
               Viewing historical revision. Comments and review status are not shown for past revisions.
             </div>
           <% } %>
-          <% if (!isHistoricalView && !isCrossRevisionView) { %>
-          <div class="review-progress">
-            <span id="review-progress-count"><%= reviewedFiles.length %> / <%= files.length %></span> files reviewed
-          </div>
-          <% } %>
           <div class="files-toolbar">
             <button id="expand-all-diffs" class="btn btn-small">Expand all diffs</button>
             <button id="collapse-all-diffs" class="btn btn-small">Collapse all diffs</button>
@@ -1320,6 +1342,7 @@
         // Update active content
         document.querySelectorAll('.pr-tab-content').forEach(c => c.classList.remove('active'));
         document.querySelector(`[data-tab-content="${targetTab}"]`).classList.add('active');
+
       });
     });
 
