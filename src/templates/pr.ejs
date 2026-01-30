@@ -712,6 +712,13 @@
         </div>
       </div>
       <% } %>
+      <div style="margin-top: 1rem; background: #f0f4f9; border: 1px solid #d0d7de; border-radius: 6px; padding: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div style="font-weight: 600; font-size: 0.85rem; color: #1f2328; margin-bottom: 0.5rem;">Options</div>
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: #656d76; cursor: pointer;">
+          <input type="checkbox" id="whitespace-toggle" <%= hideWhitespace ? 'checked' : '' %>>
+          Hide whitespace
+        </label>
+      </div>
       <div class="keyboard-help" style="margin-top: 1rem;">
         <h3 style="font-size: 0.8rem; color: #666; text-transform: uppercase;">Keyboard shortcuts</h3>
         <div class="keyboard-shortcuts">
@@ -1332,7 +1339,8 @@
       pollIntervalMs: <%= pollIntervalMs %>,
       isHistoricalView: <%= isHistoricalView ? 'true' : 'false' %>,
       isCrossRevisionView: <%= isCrossRevisionView ? 'true' : 'false' %>,
-      isCurrentRevisionExplicit: <%= isCurrentRevisionExplicit ? 'true' : 'false' %>
+      isCurrentRevisionExplicit: <%= isCurrentRevisionExplicit ? 'true' : 'false' %>,
+      hideWhitespace: <%= hideWhitespace ? 'true' : 'false' %>
     };
 
     // Tab switching

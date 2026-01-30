@@ -158,7 +158,8 @@ export async function renderFile(
     side: 'LEFT' | 'RIGHT';
   }> = [],
   isReviewed: boolean = false,
-  enableHighlighting: boolean = false
+  enableHighlighting: boolean = false,
+  fileSha: string = ''
 ): Promise<string> {
   const path = file.newPath || file.oldPath;
   const filename = path.split('/').pop() || path;
@@ -196,6 +197,7 @@ export async function renderFile(
              id="file-reviewed-${fileId}"
              class="file-reviewed-toggle"
              data-path="${escapeHtml(path)}"
+             data-file-sha="${escapeHtml(fileSha)}"
              ${isReviewed ? 'checked' : ''}
              title="Mark as reviewed">
       <label for="file-reviewed-${fileId}">Reviewed</label>
