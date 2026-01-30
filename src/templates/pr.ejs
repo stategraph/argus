@@ -712,6 +712,12 @@
         </div>
       </div>
       <% } %>
+      <div class="keyboard-help" style="margin-top: 1rem;">
+        <h3 style="font-size: 0.8rem; color: #666; text-transform: uppercase;">Keyboard shortcuts</h3>
+        <div class="keyboard-shortcuts">
+          <div class="keyboard-shortcut"><kbd>g</kbd> <span>Go to file</span></div>
+        </div>
+      </div>
     </aside>
 
     <!-- Main content -->
@@ -1371,6 +1377,13 @@
       reviewOverlay.classList.remove('active');
     });
   </script>
+  <!-- Go to file modal -->
+  <div id="goto-file-overlay" class="goto-file-overlay"></div>
+  <div id="goto-file-modal" class="goto-file-modal">
+    <input type="text" id="goto-file-input" placeholder="Type a filename..." autocomplete="off">
+    <ul id="goto-file-results"></ul>
+  </div>
+
   <script src="/static/js/pr.js" defer></script>
 </body>
 </html>

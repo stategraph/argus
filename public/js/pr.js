@@ -39,6 +39,7 @@
     setupPerDirectoryControls();
     setupSyntaxToggle();
     setupFileDeepLinks();
+    setupGoToFileModal();
 
     // Auto-switch to Files tab for historical/cross-revision/explicit-current views
     // (only if no tab is explicitly set in the URL)
@@ -545,6 +546,155 @@
         });
       }
     }
+  }
+
+  // Go to file modal
+  function setupGoToFileModal() {
+    const overlay = document.getElementById('goto-file-overlay');
+    const modal = document.getElementById('goto-file-modal');
+    const input = document.getElementById('goto-file-input');
+    const resultsList = document.getElementById('goto-file-results');
+    if (!overlay || !modal || !input || !resultsList) return;
+
+    let selectedIndex = 0;
+    let filteredFiles = [];
+
+    function getFiles() {
+      const els = document.querySelectorAll('.diff-file');
+      const files = [];
+      els.forEach(el => {
+        const path = el.dataset.path;
+        const fileId = el.dataset.fileId;
+        if (path && fileId) files.push({ path, fileId, el });
+      });
+      return files;
+    }
+
+    function openModal() {
+      const allFiles = getFiles();
+      filteredFiles = allFiles;
+      selectedIndex = 0;
+      input.value = '';
+      renderResults();
+      overlay.classList.add('active');
+      modal.classList.add('active');
+      input.focus();
+    }
+
+    function closeModal() {
+      overlay.classList.remove('active');
+      modal.classList.remove('active');
+    }
+
+    function renderResults() {
+      resultsList.innerHTML = '';
+      filteredFiles.forEach((file, i) => {
+        const li = document.createElement('li');
+        li.className = 'goto-file-result' + (i === selectedIndex ? ' selected' : '');
+        const lastSlash = file.path.lastIndexOf('/');
+        if (lastSlash >= 0) {
+          const dir = file.path.substring(0, lastSlash + 1);
+          const name = file.path.substring(lastSlash + 1);
+          li.innerHTML = '<span class="goto-file-dir">' + escapeHtml(dir) + '</span>' + escapeHtml(name);
+        } else {
+          li.textContent = file.path;
+        }
+        li.addEventListener('click', () => navigateToFile(file));
+        resultsList.appendChild(li);
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function filterFiles(query) {
+      const allFiles = getFiles();
+      if (!query.trim()) {
+        filteredFiles = allFiles;
+      } else {
+        const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+        filteredFiles = allFiles.filter(f => {
+          const lower = f.path.toLowerCase();
+          return tokens.every(t => lower.includes(t));
+        });
+      }
+      selectedIndex = 0;
+      renderResults();
+    }
+
+    function navigateToFile(file) {
+      closeModal();
+
+      // Switch to Files tab
+      const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
+      if (filesTab && !filesTab.classList.contains('active')) {
+        filesTab.click();
+      }
+
+      // Expand parent directories
+      let parent = file.el.parentElement?.closest('details.diff-directory');
+      while (parent) {
+        parent.open = true;
+        parent = parent.parentElement?.closest('details.diff-directory');
+      }
+
+      // Expand file
+      file.el.open = true;
+      file.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Update hash
+      const url = new URL(window.location);
+      url.searchParams.set('tab', 'files');
+      url.hash = '#file-' + file.fileId;
+      history.replaceState(null, '', url);
+    }
+
+    input.addEventListener('input', () => filterFiles(input.value));
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (selectedIndex < filteredFiles.length - 1) {
+          selectedIndex++;
+          renderResults();
+          const sel = resultsList.querySelector('.selected');
+          if (sel) sel.scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (selectedIndex > 0) {
+          selectedIndex--;
+          renderResults();
+          const sel = resultsList.querySelector('.selected');
+          if (sel) sel.scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filteredFiles[selectedIndex]) {
+          navigateToFile(filteredFiles[selectedIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeModal();
+      }
+    });
+
+    overlay.addEventListener('click', closeModal);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'g' && !modal.classList.contains('active')) {
+        const tag = document.activeElement?.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        // Don't trigger if review form is open
+        const reviewForm = document.getElementById('review-form');
+        if (reviewForm && reviewForm.classList.contains('active')) return;
+        e.preventDefault();
+        openModal();
+      }
+    });
   }
 
   // Cleanup on page unload

@@ -397,3 +397,80 @@ a.file-deep-link:hover { text-decoration: underline; }
 .syntax-toggle:hover {
   background: #f6f8fa;
 }
+
+/* Go to file modal */
+.goto-file-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+.goto-file-overlay.active {
+  display: block;
+}
+
+.goto-file-modal {
+  display: none;
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 600px;
+  width: 90%;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.goto-file-modal.active {
+  display: block;
+}
+
+#goto-file-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: none;
+  border-bottom: 1px solid #ddd;
+  outline: none;
+  box-sizing: border-box;
+}
+
+#goto-file-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.goto-file-result {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: 'SF Mono', Consolas, monospace;
+}
+
+.goto-file-result:hover {
+  background: #f6f8fa;
+}
+
+.goto-file-result.selected {
+  background: #0969da;
+  color: white;
+}
+
+.goto-file-result.selected .goto-file-dir {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.goto-file-dir {
+  color: #666;
+}
