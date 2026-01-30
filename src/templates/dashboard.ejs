@@ -44,8 +44,10 @@
     .empty-state { color: #666; text-align: center; padding: 3rem; }
     .nav-links { display: flex; gap: 1rem; }
 
-    .search-box { margin-bottom: 1.5rem; }
-    .search-input { width: 100%; padding: 0.5rem 0.75rem; font-size: 1rem; }
+    .search-box { margin-bottom: 1.5rem; display: flex; gap: 0.5rem; }
+    .search-input { flex: 1; padding: 0.5rem 0.75rem; font-size: 1rem; }
+    .search-go { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; background: #0066cc; color: #fff; border: none; border-radius: 4px; }
+    .search-go:disabled { opacity: 0.4; cursor: default; }
     .repo-section.hidden, .pr-item.hidden { display: none; }
 
     /* Responsive */
@@ -81,6 +83,7 @@
   <main class="dashboard">
     <div class="search-box">
       <input type="text" id="search-input" class="search-input" placeholder="Filter by title, owner/repo#123, or paste a GitHub PR URL" autofocus>
+      <button id="search-go" class="search-go" disabled>Go</button>
     </div>
 
     <div class="dashboard-header">
@@ -116,13 +119,27 @@
 
   <script>
     const input = document.getElementById('search-input');
+    const goBtn = document.getElementById('search-go');
     const sections = document.querySelectorAll('.repo-section');
+    const ghUrlRe = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/;
+
+    function navigateToGhUrl() {
+      const match = input.value.trim().match(ghUrlRe);
+      if (match) {
+        const [, owner, repo, number] = match;
+        location.href = `/pr/${owner}/${repo}/${number}`;
+      }
+    }
+
+    goBtn.addEventListener('click', navigateToGhUrl);
 
     input.addEventListener('input', () => {
       const q = input.value.trim().toLowerCase();
 
-      // GitHub PR URL
-      if (q.match(/^https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/)) return;
+      // GitHub PR URL - enable button
+      const isGhUrl = ghUrlRe.test(q);
+      goBtn.disabled = !isGhUrl;
+      if (isGhUrl) return;
 
       // Direct navigation: owner/repo#123 or owner/repo/123
       const prMatch = q.match(/^([^/]+)\/([^#/]+)[#/](\d+)$/);
@@ -153,10 +170,8 @@
       const q = input.value.trim();
 
       // GitHub PR URL
-      const urlMatch = q.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
-      if (urlMatch) {
-        const [, owner, repo, number] = urlMatch;
-        location.href = `/pr/${owner}/${repo}/${number}`;
+      if (ghUrlRe.test(q)) {
+        navigateToGhUrl();
         return;
       }
 
