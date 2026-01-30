@@ -24,10 +24,6 @@
       top: 1rem;
     }
 
-    .pr-left-sidebar.hidden {
-      visibility: hidden;
-    }
-
     .pr-main-content {
       min-width: 0;
     }
@@ -56,9 +52,6 @@
       .pr-left-sidebar {
         position: static;
         order: 0;
-      }
-      .pr-left-sidebar.hidden {
-        display: none;
       }
       .pr-right-sidebar {
         position: static;
@@ -705,7 +698,7 @@
 
   <div class="pr-container">
     <!-- Left Sidebar: Review Progress -->
-    <aside class="pr-left-sidebar hidden" id="pr-left-sidebar">
+    <aside class="pr-left-sidebar" id="pr-left-sidebar">
       <% if (!isHistoricalView && !isCrossRevisionView) { %>
       <div id="review-progress-panel" style="background: #f0f4f9; border: 1px solid #d0d7de; border-radius: 6px; padding: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         <div style="font-weight: 600; font-size: 0.85rem; color: #1f2328; margin-bottom: 0.5rem;">Review Progress</div>
@@ -1350,15 +1343,6 @@
         document.querySelectorAll('.pr-tab-content').forEach(c => c.classList.remove('active'));
         document.querySelector(`[data-tab-content="${targetTab}"]`).classList.add('active');
 
-        // Show/hide left sidebar on files tab
-        const leftSidebar = document.getElementById('pr-left-sidebar');
-        if (leftSidebar) {
-          if (targetTab === 'files') {
-            leftSidebar.classList.remove('hidden');
-          } else {
-            leftSidebar.classList.add('hidden');
-          }
-        }
       });
     });
 
