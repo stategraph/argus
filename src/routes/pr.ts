@@ -40,13 +40,14 @@ export async function prRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/pr/:owner/:repo/:number',
     async (
-      request: FastifyRequest<{ Params: PRParams; Querystring: { revision?: string; from_revision?: string; to_revision?: string } }>,
+      request: FastifyRequest<{ Params: PRParams; Querystring: { revision?: string; from_revision?: string; to_revision?: string; tab?: string } }>,
       reply: FastifyReply
     ) => {
       if (!requireAuth(request, reply)) return;
 
       const { owner, repo, number } = request.params;
       const prNumber = parseInt(number, 10);
+      const activeTab = (request.query as { tab?: string }).tab || 'conversation';
       const revisionParam = (request.query as { revision?: string }).revision;
       const isCurrentRevisionExplicit = revisionParam === 'current';
       const fromRevisionParam = (request.query as { from_revision?: string }).from_revision;
@@ -327,6 +328,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           reviewedFiles,
           totalLines,
           reviewedLines,
+          activeTab,
         });
       } catch (err: any) {
         console.error('Error fetching PR:', err);
@@ -417,7 +419,7 @@ export async function prRoutes(fastify: FastifyInstance) {
         const octokit = createUserOctokit(request.user!.accessToken);
         await postComment(octokit, owner, repo, prNumber, body.trim());
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=conversation`);
       } catch (err: any) {
         console.error('Error posting comment:', err);
         return reply.view('error', {
@@ -474,7 +476,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           body?.trim()
         );
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=files`);
       } catch (err: any) {
         console.error('Error submitting review:', err);
         return reply.view('error', {
@@ -531,7 +533,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           (side as 'LEFT' | 'RIGHT') || 'RIGHT'
         );
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=files`);
       } catch (err: any) {
         console.error('Error creating inline comment:', err);
         return reply.view('error', {
@@ -579,7 +581,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           body.trim()
         );
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=conversation`);
       } catch (err: any) {
         console.error('Error replying to comment:', err);
         return reply.view('error', {
@@ -1080,7 +1082,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           });
         }
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=conversation`);
       } catch (err: any) {
         console.error('Error merging PR:', err);
         return reply.view('error', {

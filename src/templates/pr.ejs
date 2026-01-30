@@ -767,19 +767,19 @@
 
       <!-- Tabs -->
       <div class="pr-tabs">
-        <button class="pr-tab active" data-tab="conversation">Conversation</button>
-        <button class="pr-tab" data-tab="commits">Commits <span style="background: #ddd; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= pr.commits %></span></button>
-        <button class="pr-tab" data-tab="checks">
+        <button class="pr-tab <%= activeTab === 'conversation' ? 'active' : '' %>" data-tab="conversation">Conversation</button>
+        <button class="pr-tab <%= activeTab === 'commits' ? 'active' : '' %>" data-tab="commits">Commits <span style="background: #ddd; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= pr.commits %></span></button>
+        <button class="pr-tab <%= activeTab === 'checks' ? 'active' : '' %>" data-tab="checks">
           Checks
           <% if (checksSummary.total > 0) { %>
             <span style="background: <%= checksSummary.state === 'success' ? '#2da44e' : checksSummary.state === 'failure' ? '#cf222e' : '#856404' %>; color: white; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= checksSummary.total %></span>
           <% } %>
         </button>
-        <button class="pr-tab" data-tab="files">Files changed <span style="background: #ddd; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= files.length %></span></button>
+        <button class="pr-tab <%= activeTab === 'files' ? 'active' : '' %>" data-tab="files">Files changed <span style="background: #ddd; padding: 0.125rem 0.5rem; border-radius: 10px; margin-left: 0.25rem;"><%= files.length %></span></button>
       </div>
 
       <!-- Conversation Tab -->
-      <div class="pr-tab-content active" data-tab-content="conversation">
+      <div class="pr-tab-content <%= activeTab === 'conversation' ? 'active' : '' %>" data-tab-content="conversation">
         <!-- PR Description -->
         <% if (pr.body) { %>
           <details class="pr-description" open>
@@ -955,7 +955,7 @@
       </div>
 
       <!-- Commits Tab -->
-      <div class="pr-tab-content" data-tab-content="commits">
+      <div class="pr-tab-content <%= activeTab === 'commits' ? 'active' : '' %>" data-tab-content="commits">
         <% if (revisions && revisions.length > 1) { %>
           <details style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #ddd;">
             <summary style="cursor: pointer; font-size: 0.95rem; margin-bottom: 0.5rem; user-select: none;">
@@ -1001,7 +1001,7 @@
       </div>
 
       <!-- Checks Tab -->
-      <div class="pr-tab-content" data-tab-content="checks">
+      <div class="pr-tab-content <%= activeTab === 'checks' ? 'active' : '' %>" data-tab-content="checks">
         <div style="padding: 1rem 0;">
           <% if (checksSummary.total === 0) { %>
             <div style="text-align: center; padding: 3rem 1rem; color: #666;">
@@ -1122,7 +1122,7 @@
       </div>
 
       <!-- Files Changed Tab -->
-      <div class="pr-tab-content" data-tab-content="files">
+      <div class="pr-tab-content <%= activeTab === 'files' ? 'active' : '' %>" data-tab-content="files">
         <div class="pr-files">
           <h2>Files changed (<%= files.length %>)</h2>
           <% if (revisions && revisions.length > 1) { %>
@@ -1343,6 +1343,10 @@
         document.querySelectorAll('.pr-tab-content').forEach(c => c.classList.remove('active'));
         document.querySelector(`[data-tab-content="${targetTab}"]`).classList.add('active');
 
+        // Update URL with tab parameter
+        const url = new URL(window.location);
+        url.searchParams.set('tab', targetTab);
+        history.replaceState(null, '', url);
       });
     });
 

@@ -28,9 +28,6 @@
   init();
 
   function init() {
-    // Restore state on page load
-    restoreState();
-
     // Set up event listeners
     setupPolling();
     setupSidebarLinks();
@@ -43,10 +40,13 @@
     setupSyntaxToggle();
 
     // Auto-switch to Files tab for historical/cross-revision/explicit-current views
-    if (config.isHistoricalView || config.isCrossRevisionView || config.isCurrentRevisionExplicit) {
-      const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
-      if (filesTab) {
-        filesTab.click();
+    // (only if no tab is explicitly set in the URL)
+    if (!new URL(window.location).searchParams.has('tab')) {
+      if (config.isHistoricalView || config.isCrossRevisionView || config.isCurrentRevisionExplicit) {
+        const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
+        if (filesTab) {
+          filesTab.click();
+        }
       }
     }
 
@@ -70,10 +70,6 @@
       reloadLink.href = window.location.href;
     }
 
-    // Save state before form submissions
-    document.querySelectorAll('form').forEach(form => {
-      form.addEventListener('submit', saveStateBeforeSubmit);
-    });
   }
 
   // Compare dropdown
@@ -497,40 +493,6 @@
         console.error('Failed to toggle syntax highlighting:', err);
       }
     });
-  }
-
-  // State management for preserving context after form submissions
-  function captureState() {
-    const activeTab = document.querySelector('.pr-tab.active')?.dataset.tab || 'conversation';
-    return { tab: activeTab };
-  }
-
-  function saveStateBeforeSubmit() {
-    const state = captureState();
-    const stateKey = `pr-state-${config.owner}/${config.repo}/${config.prNumber}`;
-    sessionStorage.setItem(stateKey, JSON.stringify(state));
-  }
-
-  function restoreState() {
-    const stateKey = `pr-state-${config.owner}/${config.repo}/${config.prNumber}`;
-    const stateJson = sessionStorage.getItem(stateKey);
-    if (!stateJson) return;
-
-    try {
-      const state = JSON.parse(stateJson);
-
-      // Restore tab only
-      if (state.tab && state.tab !== 'conversation') {
-        const tabBtn = document.querySelector(`.pr-tab[data-tab="${state.tab}"]`);
-        if (tabBtn) {
-          tabBtn.click();
-        }
-      }
-
-      sessionStorage.removeItem(stateKey);
-    } catch (e) {
-      console.error('Failed to restore state:', e);
-    }
   }
 
   // Cleanup on page unload
