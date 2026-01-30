@@ -274,10 +274,10 @@ export async function renderFile(
       <summary class="file-header" id="file-${index}">
         <span class="file-header-info">
           <span class="status-badge ${badge.class}">${badge.text}</span>
-          <span class="file-path">
+          <a class="file-path file-deep-link" href="#file-${index}" onclick="event.stopPropagation()" style="text-decoration: none; color: inherit;">
             <span class="file-directory">${escapeHtml(directory)}</span>
             <span class="file-name">${escapeHtml(filename)}</span>
-          </span>
+          </a>
         </span>
         <span class="file-stats">${statsHtml}${syntaxToggle}${reviewCheckbox}</span>
       </summary>

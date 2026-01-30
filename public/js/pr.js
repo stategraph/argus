@@ -38,6 +38,7 @@
     setupDiffControls();
     setupPerDirectoryControls();
     setupSyntaxToggle();
+    setupFileDeepLinks();
 
     // Auto-switch to Files tab for historical/cross-revision/explicit-current views
     // (only if no tab is explicitly set in the URL)
@@ -493,6 +494,55 @@
         console.error('Failed to toggle syntax highlighting:', err);
       }
     });
+  }
+
+  // File deep links
+  function setupFileDeepLinks() {
+    // Handle clicking file deep links: update URL tab param and ensure file is expanded
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('.file-deep-link');
+      if (!link) return;
+
+      e.preventDefault();
+      const hash = link.getAttribute('href');
+      const url = new URL(window.location);
+      url.searchParams.set('tab', 'files');
+      url.hash = hash;
+      history.replaceState(null, '', url);
+
+      // Ensure the Files tab is active
+      const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
+      if (filesTab && !filesTab.classList.contains('active')) {
+        filesTab.click();
+      }
+
+      // Expand and scroll to the target file
+      const target = document.querySelector(hash);
+      if (target) {
+        const details = target.closest('details.diff-file');
+        if (details) details.open = true;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    // On page load, if there's a #file-N hash, expand and scroll to it
+    const hash = window.location.hash;
+    if (hash && hash.match(/^#file-\d+$/)) {
+      const target = document.querySelector(hash);
+      if (target) {
+        const details = target.closest('details.diff-file');
+        if (details) details.open = true;
+        // Also expand parent directories
+        let parent = details?.parentElement?.closest('details.diff-directory');
+        while (parent) {
+          parent.open = true;
+          parent = parent.parentElement?.closest('details.diff-directory');
+        }
+        requestAnimationFrame(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+    }
   }
 
   // Cleanup on page unload
