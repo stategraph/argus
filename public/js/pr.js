@@ -28,9 +28,6 @@
   init();
 
   function init() {
-    // Restore state on page load
-    restoreState();
-
     // Set up event listeners
     setupPolling();
     setupSidebarLinks();
@@ -41,12 +38,17 @@
     setupDiffControls();
     setupPerDirectoryControls();
     setupSyntaxToggle();
+    setupFileDeepLinks();
+    setupGoToFileModal();
 
     // Auto-switch to Files tab for historical/cross-revision/explicit-current views
-    if (config.isHistoricalView || config.isCrossRevisionView || config.isCurrentRevisionExplicit) {
-      const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
-      if (filesTab) {
-        filesTab.click();
+    // (only if no tab is explicitly set in the URL)
+    if (!new URL(window.location).searchParams.has('tab')) {
+      if (config.isHistoricalView || config.isCrossRevisionView || config.isCurrentRevisionExplicit) {
+        const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
+        if (filesTab) {
+          filesTab.click();
+        }
       }
     }
 
@@ -70,10 +72,6 @@
       reloadLink.href = window.location.href;
     }
 
-    // Save state before form submissions
-    document.querySelectorAll('form').forEach(form => {
-      form.addEventListener('submit', saveStateBeforeSubmit);
-    });
   }
 
   // Compare dropdown
@@ -181,18 +179,20 @@
   function setupSidebarLinks() {
     const sidebarItems = document.querySelectorAll('.file-sidebar-item');
 
-    sidebarItems.forEach((item, index) => {
+    sidebarItems.forEach((item) => {
       item.addEventListener('click', (e) => {
         e.preventDefault();
 
+        const fileId = item.dataset.fileId;
+
         // Highlight file
         const files = diffContainer.querySelectorAll('.diff-file');
-        files.forEach((f, i) => {
-          f.classList.toggle('highlighted', i === index);
+        files.forEach((f) => {
+          f.classList.toggle('highlighted', f.dataset.fileId === fileId);
         });
 
         // Scroll to file
-        const targetFile = files[index];
+        const targetFile = diffContainer.querySelector(`.diff-file[data-file-id="${fileId}"]`);
         if (targetFile) {
           // Ensure file is expanded (details element)
           targetFile.open = true;
@@ -200,8 +200,8 @@
         }
 
         // Update sidebar active state
-        sidebarItems.forEach((sidebarItem, i) => {
-          sidebarItem.classList.toggle('active', i === index);
+        sidebarItems.forEach((sidebarItem) => {
+          sidebarItem.classList.toggle('active', sidebarItem.dataset.fileId === fileId);
         });
       });
     });
@@ -499,38 +499,202 @@
     });
   }
 
-  // State management for preserving context after form submissions
-  function captureState() {
-    const activeTab = document.querySelector('.pr-tab.active')?.dataset.tab || 'conversation';
-    return { tab: activeTab };
-  }
+  // File deep links
+  function setupFileDeepLinks() {
+    // Handle clicking file deep links: update URL tab param and ensure file is expanded
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('.file-deep-link');
+      if (!link) return;
 
-  function saveStateBeforeSubmit() {
-    const state = captureState();
-    const stateKey = `pr-state-${config.owner}/${config.repo}/${config.prNumber}`;
-    sessionStorage.setItem(stateKey, JSON.stringify(state));
-  }
+      e.preventDefault();
+      const hash = link.getAttribute('href');
+      const url = new URL(window.location);
+      url.searchParams.set('tab', 'files');
+      url.hash = hash;
+      history.replaceState(null, '', url);
 
-  function restoreState() {
-    const stateKey = `pr-state-${config.owner}/${config.repo}/${config.prNumber}`;
-    const stateJson = sessionStorage.getItem(stateKey);
-    if (!stateJson) return;
-
-    try {
-      const state = JSON.parse(stateJson);
-
-      // Restore tab only
-      if (state.tab && state.tab !== 'conversation') {
-        const tabBtn = document.querySelector(`.pr-tab[data-tab="${state.tab}"]`);
-        if (tabBtn) {
-          tabBtn.click();
-        }
+      // Ensure the Files tab is active
+      const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
+      if (filesTab && !filesTab.classList.contains('active')) {
+        filesTab.click();
       }
 
-      sessionStorage.removeItem(stateKey);
-    } catch (e) {
-      console.error('Failed to restore state:', e);
+      // Expand and scroll to the target file
+      const target = document.querySelector(hash);
+      if (target) {
+        const details = target.closest('details.diff-file');
+        if (details) details.open = true;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    // On page load, if there's a hash, expand ancestors and scroll to it
+    const hash = window.location.hash;
+    if (hash && (hash.startsWith('#file-') || hash.startsWith('#comment-'))) {
+      const target = document.querySelector(hash);
+      if (target) {
+        const details = target.closest('details.diff-file');
+        if (details) details.open = true;
+        // Also expand parent directories
+        let parent = details?.parentElement?.closest('details.diff-directory');
+        while (parent) {
+          parent.open = true;
+          parent = parent.parentElement?.closest('details.diff-directory');
+        }
+        requestAnimationFrame(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
     }
+  }
+
+  // Go to file modal
+  function setupGoToFileModal() {
+    const overlay = document.getElementById('goto-file-overlay');
+    const modal = document.getElementById('goto-file-modal');
+    const input = document.getElementById('goto-file-input');
+    const resultsList = document.getElementById('goto-file-results');
+    if (!overlay || !modal || !input || !resultsList) return;
+
+    let selectedIndex = 0;
+    let filteredFiles = [];
+
+    function getFiles() {
+      const els = document.querySelectorAll('.diff-file');
+      const files = [];
+      els.forEach(el => {
+        const path = el.dataset.path;
+        const fileId = el.dataset.fileId;
+        if (path && fileId) files.push({ path, fileId, el });
+      });
+      return files;
+    }
+
+    function openModal() {
+      const allFiles = getFiles();
+      filteredFiles = allFiles;
+      selectedIndex = 0;
+      input.value = '';
+      renderResults();
+      overlay.classList.add('active');
+      modal.classList.add('active');
+      input.focus();
+    }
+
+    function closeModal() {
+      overlay.classList.remove('active');
+      modal.classList.remove('active');
+    }
+
+    function renderResults() {
+      resultsList.innerHTML = '';
+      filteredFiles.forEach((file, i) => {
+        const li = document.createElement('li');
+        li.className = 'goto-file-result' + (i === selectedIndex ? ' selected' : '');
+        const lastSlash = file.path.lastIndexOf('/');
+        if (lastSlash >= 0) {
+          const dir = file.path.substring(0, lastSlash + 1);
+          const name = file.path.substring(lastSlash + 1);
+          li.innerHTML = '<span class="goto-file-dir">' + escapeHtml(dir) + '</span>' + escapeHtml(name);
+        } else {
+          li.textContent = file.path;
+        }
+        li.addEventListener('click', () => navigateToFile(file));
+        resultsList.appendChild(li);
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function filterFiles(query) {
+      const allFiles = getFiles();
+      if (!query.trim()) {
+        filteredFiles = allFiles;
+      } else {
+        const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+        filteredFiles = allFiles.filter(f => {
+          const lower = f.path.toLowerCase();
+          return tokens.every(t => lower.includes(t));
+        });
+      }
+      selectedIndex = 0;
+      renderResults();
+    }
+
+    function navigateToFile(file) {
+      closeModal();
+
+      // Switch to Files tab
+      const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
+      if (filesTab && !filesTab.classList.contains('active')) {
+        filesTab.click();
+      }
+
+      // Expand parent directories
+      let parent = file.el.parentElement?.closest('details.diff-directory');
+      while (parent) {
+        parent.open = true;
+        parent = parent.parentElement?.closest('details.diff-directory');
+      }
+
+      // Expand file
+      file.el.open = true;
+      file.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Update hash
+      const url = new URL(window.location);
+      url.searchParams.set('tab', 'files');
+      url.hash = '#file-' + file.fileId;
+      history.replaceState(null, '', url);
+    }
+
+    input.addEventListener('input', () => filterFiles(input.value));
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (selectedIndex < filteredFiles.length - 1) {
+          selectedIndex++;
+          renderResults();
+          const sel = resultsList.querySelector('.selected');
+          if (sel) sel.scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (selectedIndex > 0) {
+          selectedIndex--;
+          renderResults();
+          const sel = resultsList.querySelector('.selected');
+          if (sel) sel.scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filteredFiles[selectedIndex]) {
+          navigateToFile(filteredFiles[selectedIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeModal();
+      }
+    });
+
+    overlay.addEventListener('click', closeModal);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'g' && !modal.classList.contains('active')) {
+        const tag = document.activeElement?.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        // Don't trigger if review form is open
+        const reviewForm = document.getElementById('review-form');
+        if (reviewForm && reviewForm.classList.contains('active')) return;
+        e.preventDefault();
+        openModal();
+      }
+    });
   }
 
   // Cleanup on page unload

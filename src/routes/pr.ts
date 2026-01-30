@@ -22,7 +22,7 @@ import {
 } from '../lib/github.js';
 import { query } from '../db/index.js';
 import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
-import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree } from '../lib/diff-renderer.js';
+import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree, fileSlug } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { config } from '../config.js';
 import { computeMergeBase, computeRangeDiff, computeCrossDiff } from '../lib/git.js';
@@ -40,13 +40,14 @@ export async function prRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/pr/:owner/:repo/:number',
     async (
-      request: FastifyRequest<{ Params: PRParams; Querystring: { revision?: string; from_revision?: string; to_revision?: string } }>,
+      request: FastifyRequest<{ Params: PRParams; Querystring: { revision?: string; from_revision?: string; to_revision?: string; tab?: string } }>,
       reply: FastifyReply
     ) => {
       if (!requireAuth(request, reply)) return;
 
       const { owner, repo, number } = request.params;
       const prNumber = parseInt(number, 10);
+      const activeTab = (request.query as { tab?: string }).tab || 'conversation';
       const revisionParam = (request.query as { revision?: string }).revision;
       const isCurrentRevisionExplicit = revisionParam === 'current';
       const fromRevisionParam = (request.query as { from_revision?: string }).from_revision;
@@ -223,11 +224,12 @@ export async function prRoutes(fastify: FastifyInstance) {
               isBinary: true,
             };
 
+            const slug = fileSlug(file.filename);
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: await renderFile(diffFile, i, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting),
-              sidebarHtml: renderFileSidebarItem(diffFile, i),
+              renderedHtml: await renderFile(diffFile, slug, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting),
+              sidebarHtml: renderFileSidebarItem(diffFile, slug),
               truncated: false,
               totalLines: 0,
               comments: fileComments,
@@ -238,12 +240,13 @@ export async function prRoutes(fastify: FastifyInstance) {
 
           const parsedFile = parsePatch(file.patch, file.filename, file.status);
 
+          const slug = fileSlug(file.filename);
           parsedFiles.push({
             file: parsedFile,
             path: file.filename,
             renderedHtml: await renderFile(
               parsedFile,
-              i,
+              slug,
               pr.head.sha,
               owner,
               repo,
@@ -252,7 +255,7 @@ export async function prRoutes(fastify: FastifyInstance) {
               reviewedFilesSet.has(file.filename),
               enableHighlighting
             ),
-            sidebarHtml: renderFileSidebarItem(parsedFile, i),
+            sidebarHtml: renderFileSidebarItem(parsedFile, slug),
             truncated: false,
             totalLines: 0,
             comments: fileComments,
@@ -327,6 +330,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           reviewedFiles,
           totalLines,
           reviewedLines,
+          activeTab,
         });
       } catch (err: any) {
         console.error('Error fetching PR:', err);
@@ -417,7 +421,7 @@ export async function prRoutes(fastify: FastifyInstance) {
         const octokit = createUserOctokit(request.user!.accessToken);
         await postComment(octokit, owner, repo, prNumber, body.trim());
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=conversation`);
       } catch (err: any) {
         console.error('Error posting comment:', err);
         return reply.view('error', {
@@ -474,7 +478,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           body?.trim()
         );
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=files`);
       } catch (err: any) {
         console.error('Error submitting review:', err);
         return reply.view('error', {
@@ -519,7 +523,7 @@ export async function prRoutes(fastify: FastifyInstance) {
 
       try {
         const octokit = createUserOctokit(request.user!.accessToken);
-        await createReviewComment(
+        const commentId = await createReviewComment(
           octokit,
           owner,
           repo,
@@ -531,7 +535,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           (side as 'LEFT' | 'RIGHT') || 'RIGHT'
         );
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=files#comment-${commentId}`);
       } catch (err: any) {
         console.error('Error creating inline comment:', err);
         return reply.view('error', {
@@ -579,7 +583,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           body.trim()
         );
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=conversation`);
       } catch (err: any) {
         console.error('Error replying to comment:', err);
         return reply.view('error', {
@@ -975,7 +979,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: await renderFile(diffFile, i, sha, owner, repo, 0, [], false, false),
+              renderedHtml: await renderFile(diffFile, fileSlug(file.filename), sha, owner, repo, 0, [], false, false),
             });
             continue;
           }
@@ -985,7 +989,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           parsedFiles.push({
             file: parsedFile,
             path: file.filename,
-            renderedHtml: await renderFile(parsedFile, i, sha, owner, repo, 0, [], false, false),
+            renderedHtml: await renderFile(parsedFile, fileSlug(file.filename), sha, owner, repo, 0, [], false, false),
           });
         }
 
@@ -1080,7 +1084,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           });
         }
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=conversation`);
       } catch (err: any) {
         console.error('Error merging PR:', err);
         return reply.view('error', {

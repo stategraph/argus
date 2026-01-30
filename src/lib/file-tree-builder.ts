@@ -7,7 +7,7 @@ export interface FileNode {
   type: 'file';
   path: string;
   name: string;
-  fileIndex: number;
+  fileId: string;
   fileData: any;
 }
 
@@ -58,7 +58,7 @@ export function buildFileTree(files: Array<{ path: string; file: any; [key: stri
       type: 'file',
       path: fileData.path,
       name: fileName,
-      fileIndex: index,
+      fileId: fileData.path.replace(/[^a-zA-Z0-9]/g, '-'),
       fileData,
     });
 
