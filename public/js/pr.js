@@ -28,6 +28,16 @@
   init();
 
   function init() {
+    // Apply persisted whitespace preference
+    const hideWsPref = localStorage.getItem('hideWhitespace');
+    const currentUrl = new URL(window.location);
+    const hasWParam = currentUrl.searchParams.get('w') === '1';
+    if (hideWsPref === '1' && !hasWParam) {
+      currentUrl.searchParams.set('w', '1');
+      window.location.replace(currentUrl.toString());
+      return;
+    }
+
     // Set up event listeners
     setupPolling();
     setupSidebarLinks();
@@ -38,6 +48,7 @@
     setupDiffControls();
     setupPerDirectoryControls();
     setupSyntaxToggle();
+    setupWhitespaceToggle();
     setupFileDeepLinks();
     setupGoToFileModal();
 
@@ -496,6 +507,23 @@
       } catch (err) {
         console.error('Failed to toggle syntax highlighting:', err);
       }
+    });
+  }
+
+  // Whitespace toggle
+  function setupWhitespaceToggle() {
+    const checkbox = document.getElementById('whitespace-toggle');
+    if (!checkbox) return;
+
+    checkbox.addEventListener('change', () => {
+      localStorage.setItem('hideWhitespace', checkbox.checked ? '1' : '0');
+      const url = new URL(window.location);
+      if (checkbox.checked) {
+        url.searchParams.set('w', '1');
+      } else {
+        url.searchParams.delete('w');
+      }
+      window.location.href = url.toString();
     });
   }
 

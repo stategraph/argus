@@ -236,7 +236,8 @@ export async function computeCrossDiff(
   repo: string,
   fromSha: string,
   toSha: string,
-  token: string
+  token: string,
+  options?: { ignoreWhitespace?: boolean }
 ): Promise<Array<{
   filename: string;
   status: string;
@@ -249,23 +250,25 @@ export async function computeCrossDiff(
   await ensureRepo(owner, repo, token);
   await fetchRefs(owner, repo, [fromSha, toSha], token);
 
+  const wFlag = options?.ignoreWhitespace ? ['-w'] : [];
+
   // Get the list of changed files with stats
   const numstatResult = await execGit(
-    ['diff', '--numstat', fromSha, toSha],
+    ['diff', ...wFlag, '--numstat', fromSha, toSha],
     repoPath,
     token
   );
 
   // Get the full diff with patches
   const diffResult = await execGit(
-    ['diff', '--no-color', fromSha, toSha],
+    ['diff', ...wFlag, '--no-color', fromSha, toSha],
     repoPath,
     token
   );
 
   // Get file statuses (A/M/D/R)
   const statusResult = await execGit(
-    ['diff', '--name-status', fromSha, toSha],
+    ['diff', ...wFlag, '--name-status', fromSha, toSha],
     repoPath,
     token
   );

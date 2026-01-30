@@ -40,7 +40,7 @@ export async function prRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/pr/:owner/:repo/:number',
     async (
-      request: FastifyRequest<{ Params: PRParams; Querystring: { revision?: string; from_revision?: string; to_revision?: string; tab?: string } }>,
+      request: FastifyRequest<{ Params: PRParams; Querystring: { revision?: string; from_revision?: string; to_revision?: string; tab?: string; w?: string } }>,
       reply: FastifyReply
     ) => {
       if (!requireAuth(request, reply)) return;
@@ -52,6 +52,7 @@ export async function prRoutes(fastify: FastifyInstance) {
       const isCurrentRevisionExplicit = revisionParam === 'current';
       const fromRevisionParam = (request.query as { from_revision?: string }).from_revision;
       const toRevisionParam = (request.query as { to_revision?: string }).to_revision;
+      const hideWhitespace = (request.query as { w?: string }).w === '1';
 
       if (isNaN(prNumber)) {
         return reply.status(400).view('error', {
@@ -160,7 +161,8 @@ export async function prRoutes(fastify: FastifyInstance) {
 
               // Two-dot git diff between the two head SHAs
               historicalFiles = await computeCrossDiff(
-                owner, repo, fromRev.head_sha, toRev.head_sha, request.user!.accessToken
+                owner, repo, fromRev.head_sha, toRev.head_sha, request.user!.accessToken,
+                hideWhitespace ? { ignoreWhitespace: true } : undefined
               );
             }
           }
@@ -189,10 +191,28 @@ export async function prRoutes(fastify: FastifyInstance) {
               }
 
               // Reconstruct historical diff
-              const comparison = await compareCommits(octokit, owner, repo, mergeBase, selectedRev.head_sha);
-              historicalFiles = comparison.files;
+              if (hideWhitespace) {
+                historicalFiles = await computeCrossDiff(
+                  owner, repo, mergeBase, selectedRev.head_sha, request.user!.accessToken,
+                  { ignoreWhitespace: true }
+                );
+              } else {
+                const comparison = await compareCommits(octokit, owner, repo, mergeBase, selectedRev.head_sha);
+                historicalFiles = comparison.files;
+              }
             }
           }
+        }
+
+        // If hiding whitespace on the current view, use local git diff with -w
+        if (hideWhitespace && !isHistoricalView && !isCrossRevisionView) {
+          const mergeBase = await computeMergeBase(
+            owner, repo, pr.base.sha, pr.head.sha, request.user!.accessToken
+          );
+          historicalFiles = await computeCrossDiff(
+            owner, repo, mergeBase, pr.head.sha, request.user!.accessToken,
+            { ignoreWhitespace: true }
+          );
         }
 
         // Parse and render diffs
@@ -207,10 +227,10 @@ export async function prRoutes(fastify: FastifyInstance) {
           commentCount: number;
         }> = [];
 
-        const filesToRender = (isHistoricalView || isCrossRevisionView) ? historicalFiles : files;
+        const filesToRender = (isHistoricalView || isCrossRevisionView || hideWhitespace) ? historicalFiles : files;
         for (let i = 0; i < filesToRender.length; i++) {
           const file = filesToRender[i];
-          const fileComments = (isHistoricalView || isCrossRevisionView) ? [] : (commentsByFile.get(file.filename) || []);
+          const fileComments = (isHistoricalView || isCrossRevisionView || hideWhitespace) ? [] : (commentsByFile.get(file.filename) || []);
 
           if (!file.patch) {
             // Binary file or no changes
@@ -331,6 +351,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           totalLines,
           reviewedLines,
           activeTab,
+          hideWhitespace,
         });
       } catch (err: any) {
         console.error('Error fetching PR:', err);
