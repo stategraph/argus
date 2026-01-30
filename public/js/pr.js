@@ -178,18 +178,20 @@
   function setupSidebarLinks() {
     const sidebarItems = document.querySelectorAll('.file-sidebar-item');
 
-    sidebarItems.forEach((item, index) => {
+    sidebarItems.forEach((item) => {
       item.addEventListener('click', (e) => {
         e.preventDefault();
 
+        const fileId = item.dataset.fileId;
+
         // Highlight file
         const files = diffContainer.querySelectorAll('.diff-file');
-        files.forEach((f, i) => {
-          f.classList.toggle('highlighted', i === index);
+        files.forEach((f) => {
+          f.classList.toggle('highlighted', f.dataset.fileId === fileId);
         });
 
         // Scroll to file
-        const targetFile = files[index];
+        const targetFile = diffContainer.querySelector(`.diff-file[data-file-id="${fileId}"]`);
         if (targetFile) {
           // Ensure file is expanded (details element)
           targetFile.open = true;
@@ -197,8 +199,8 @@
         }
 
         // Update sidebar active state
-        sidebarItems.forEach((sidebarItem, i) => {
-          sidebarItem.classList.toggle('active', i === index);
+        sidebarItems.forEach((sidebarItem) => {
+          sidebarItem.classList.toggle('active', sidebarItem.dataset.fileId === fileId);
         });
       });
     });
@@ -527,7 +529,7 @@
 
     // On page load, if there's a #file-N hash, expand and scroll to it
     const hash = window.location.hash;
-    if (hash && hash.match(/^#file-\d+$/)) {
+    if (hash && hash.startsWith('#file-')) {
       const target = document.querySelector(hash);
       if (target) {
         const details = target.closest('details.diff-file');

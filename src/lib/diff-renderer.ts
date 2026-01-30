@@ -1,6 +1,11 @@
 import { DiffFile, DiffLine } from './diff-parser.js';
 import { detectLanguage, highlightCode } from './syntax-highlighter.js';
 
+// Convert a file path to a URL-safe slug for stable deep linking
+export function fileSlug(path: string): string {
+  return path.replace(/[^a-zA-Z0-9]/g, '-');
+}
+
 // Escape HTML characters
 function escapeHtml(text: string): string {
   return text
@@ -29,7 +34,7 @@ const LINE_TYPE_PREFIXES: Record<ContentLineType, string> = {
 // Render a single diff line
 async function renderLine(
   line: DiffLine,
-  fileIndex: number,
+  fileId: string,
   path: string,
   headSha: string,
   owner: string,
@@ -49,7 +54,7 @@ async function renderLine(
   const commentSide = line.type === 'del' ? 'LEFT' : 'RIGHT';
 
   // Unique ID for this line's comment form (for CSS :target)
-  const lineId = `f${fileIndex}-L${commentSide}${commentLine}`;
+  const lineId = `f-${fileId}-L${commentSide}${commentLine}`;
   const formId = `comment-${lineId}`;
 
   // Comment button - links to the form anchor for no-JS support
@@ -137,7 +142,7 @@ function renderHunkHeader(header: string): string {
 // Render a file diff
 export async function renderFile(
   file: DiffFile,
-  index: number,
+  fileId: string,
   headSha: string,
   owner: string,
   repo: string,
@@ -179,7 +184,7 @@ export async function renderFile(
 
   // Syntax toggle button
   const syntaxToggle = language ? `
-    <button class="syntax-toggle" data-file-index="${index}" title="Toggle syntax highlighting">
+    <button class="syntax-toggle" data-file-id="${fileId}" title="Toggle syntax highlighting">
       ${enableHighlighting ? 'Syntax: ON' : 'Syntax: OFF'}
     </button>
   ` : '';
@@ -188,20 +193,20 @@ export async function renderFile(
   const reviewCheckbox = `
     <span class="file-review-checkbox">
       <input type="checkbox"
-             id="file-reviewed-${index}"
+             id="file-reviewed-${fileId}"
              class="file-reviewed-toggle"
              data-path="${escapeHtml(path)}"
              ${isReviewed ? 'checked' : ''}
              title="Mark as reviewed">
-      <label for="file-reviewed-${index}">Reviewed</label>
+      <label for="file-reviewed-${fileId}">Reviewed</label>
     </span>
   `;
 
   // Binary file
   if (file.isBinary) {
     return `
-      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
-        <summary class="file-header" id="file-${index}">
+      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-id="${fileId}" data-path="${escapeHtml(path)}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
+        <summary class="file-header" id="file-${fileId}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
             <span class="file-path">
@@ -220,8 +225,8 @@ export async function renderFile(
   // Empty file
   if (file.hunks.length === 0) {
     return `
-      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
-        <summary class="file-header" id="file-${index}">
+      <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-id="${fileId}" data-path="${escapeHtml(path)}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
+        <summary class="file-header" id="file-${fileId}">
           <span class="file-header-info">
             <span class="status-badge ${badge.class}">${badge.text}</span>
             <span class="file-path">
@@ -254,7 +259,7 @@ export async function renderFile(
   for (const hunk of file.hunks) {
     tableRows += renderHunkHeader(hunk.header);
     for (const line of hunk.lines) {
-      tableRows += await renderLine(line, index, path, headSha, owner, repo, prNumber, language, enableHighlighting);
+      tableRows += await renderLine(line, fileId, path, headSha, owner, repo, prNumber, language, enableHighlighting);
 
       // Render comments for this line
       const lineNumber = line.type === 'del' ? line.oldLineNum : line.newLineNum;
@@ -270,11 +275,11 @@ export async function renderFile(
   }
 
   return `
-    <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-index="${index}" data-path="${escapeHtml(path)}" data-sha="${headSha}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
-      <summary class="file-header" id="file-${index}">
+    <details class="diff-file ${isReviewed ? 'file-reviewed' : ''}" data-file-id="${fileId}" data-path="${escapeHtml(path)}" data-sha="${headSha}" data-additions="${file.additions}" data-deletions="${file.deletions}" ${isReviewed ? '' : 'open'}>
+      <summary class="file-header" id="file-${fileId}">
         <span class="file-header-info">
           <span class="status-badge ${badge.class}">${badge.text}</span>
-          <a class="file-path file-deep-link" href="#file-${index}" onclick="event.stopPropagation()" style="text-decoration: none; color: inherit;">
+          <a class="file-path file-deep-link" href="#file-${fileId}" onclick="event.stopPropagation()" style="text-decoration: none; color: inherit;">
             <span class="file-directory">${escapeHtml(directory)}</span>
             <span class="file-name">${escapeHtml(filename)}</span>
           </a>
@@ -292,7 +297,7 @@ export async function renderFile(
 }
 
 // Render file sidebar item
-export function renderFileSidebarItem(file: DiffFile, index: number): string {
+export function renderFileSidebarItem(file: DiffFile, fileId: string): string {
   const path = file.newPath || file.oldPath;
   const filename = path.split('/').pop() || path;
   const directory = path.substring(0, path.length - filename.length);
@@ -303,7 +308,7 @@ export function renderFileSidebarItem(file: DiffFile, index: number): string {
        <span class="sidebar-stat deletions">-${file.deletions}</span>`;
 
   return `
-    <a href="#file-${index}" class="file-sidebar-item status-${file.status}" data-file-index="${index}">
+    <a href="#file-${fileId}" class="file-sidebar-item status-${file.status}" data-file-id="${fileId}">
       <span class="sidebar-file-path" title="${escapeHtml(path)}">
         ${directory ? `<span class="sidebar-dir">${escapeHtml(directory)}</span>` : ''}
         <span class="sidebar-name">${escapeHtml(filename)}</span>

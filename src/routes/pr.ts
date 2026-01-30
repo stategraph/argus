@@ -22,7 +22,7 @@ import {
 } from '../lib/github.js';
 import { query } from '../db/index.js';
 import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
-import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree } from '../lib/diff-renderer.js';
+import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree, fileSlug } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { config } from '../config.js';
 import { computeMergeBase, computeRangeDiff, computeCrossDiff } from '../lib/git.js';
@@ -224,11 +224,12 @@ export async function prRoutes(fastify: FastifyInstance) {
               isBinary: true,
             };
 
+            const slug = fileSlug(file.filename);
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: await renderFile(diffFile, i, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting),
-              sidebarHtml: renderFileSidebarItem(diffFile, i),
+              renderedHtml: await renderFile(diffFile, slug, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting),
+              sidebarHtml: renderFileSidebarItem(diffFile, slug),
               truncated: false,
               totalLines: 0,
               comments: fileComments,
@@ -239,12 +240,13 @@ export async function prRoutes(fastify: FastifyInstance) {
 
           const parsedFile = parsePatch(file.patch, file.filename, file.status);
 
+          const slug = fileSlug(file.filename);
           parsedFiles.push({
             file: parsedFile,
             path: file.filename,
             renderedHtml: await renderFile(
               parsedFile,
-              i,
+              slug,
               pr.head.sha,
               owner,
               repo,
@@ -253,7 +255,7 @@ export async function prRoutes(fastify: FastifyInstance) {
               reviewedFilesSet.has(file.filename),
               enableHighlighting
             ),
-            sidebarHtml: renderFileSidebarItem(parsedFile, i),
+            sidebarHtml: renderFileSidebarItem(parsedFile, slug),
             truncated: false,
             totalLines: 0,
             comments: fileComments,
@@ -977,7 +979,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: await renderFile(diffFile, i, sha, owner, repo, 0, [], false, false),
+              renderedHtml: await renderFile(diffFile, fileSlug(file.filename), sha, owner, repo, 0, [], false, false),
             });
             continue;
           }
@@ -987,7 +989,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           parsedFiles.push({
             file: parsedFile,
             path: file.filename,
-            renderedHtml: await renderFile(parsedFile, i, sha, owner, repo, 0, [], false, false),
+            renderedHtml: await renderFile(parsedFile, fileSlug(file.filename), sha, owner, repo, 0, [], false, false),
           });
         }
 
