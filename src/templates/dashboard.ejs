@@ -80,7 +80,7 @@
 
   <main class="dashboard">
     <div class="search-box">
-      <input type="text" id="search-input" class="search-input" placeholder="Filter by PR title or owner/repo#123 to jump" autofocus>
+      <input type="text" id="search-input" class="search-input" placeholder="Filter by title, owner/repo#123, or paste a GitHub PR URL" autofocus>
     </div>
 
     <div class="dashboard-header">
@@ -121,6 +121,9 @@
     input.addEventListener('input', () => {
       const q = input.value.trim().toLowerCase();
 
+      // GitHub PR URL
+      if (q.match(/^https?:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/)) return;
+
       // Direct navigation: owner/repo#123 or owner/repo/123
       const prMatch = q.match(/^([^/]+)\/([^#/]+)[#/](\d+)$/);
       if (prMatch) {
@@ -148,6 +151,14 @@
       if (e.key !== 'Enter') return;
 
       const q = input.value.trim();
+
+      // GitHub PR URL
+      const urlMatch = q.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+      if (urlMatch) {
+        const [, owner, repo, number] = urlMatch;
+        location.href = `/pr/${owner}/${repo}/${number}`;
+        return;
+      }
 
       // Direct navigation: owner/repo#123 or owner/repo/123
       const prMatch = q.match(/^([^/]+)\/([^#/]+)[#/](\d+)$/);
