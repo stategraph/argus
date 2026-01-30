@@ -264,6 +264,17 @@ export async function prRoutes(fastify: FastifyInstance) {
         const fileTree = buildFileTree(parsedFiles);
         const fileTreeHtml = renderDirectoryTree(fileTree);
 
+        // Compute line stats for review progress
+        let totalLines = 0;
+        let reviewedLines = 0;
+        for (const pf of parsedFiles) {
+          const fileLines = pf.file.additions + pf.file.deletions;
+          totalLines += fileLines;
+          if (reviewedFilesSet.has(pf.path)) {
+            reviewedLines += fileLines;
+          }
+        }
+
         // Summarize checks
         const checksSummary = summarizeChecks(checks, combinedStatus);
 
@@ -314,6 +325,8 @@ export async function prRoutes(fastify: FastifyInstance) {
           pollIntervalMs: config.ui.pollIntervalMs,
           config,
           reviewedFiles,
+          totalLines,
+          reviewedLines,
         });
       } catch (err: any) {
         console.error('Error fetching PR:', err);

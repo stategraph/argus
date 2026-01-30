@@ -372,12 +372,35 @@
   }
 
   function updateReviewProgress() {
-    const progressEl = document.getElementById('review-progress-count');
-    if (!progressEl) return;
+    const panel = document.getElementById('review-progress-panel');
+    if (!panel) return;
 
-    const totalFiles = document.querySelectorAll('.diff-file').length;
-    const reviewedFiles = document.querySelectorAll('.file-reviewed-toggle:checked').length;
-    progressEl.textContent = `${reviewedFiles} / ${totalFiles}`;
+    const allFiles = document.querySelectorAll('.diff-file');
+    const totalFiles = allFiles.length;
+    const reviewedFileCount = document.querySelectorAll('.file-reviewed-toggle:checked').length;
+
+    let totalLines = 0;
+    let reviewedLines = 0;
+    allFiles.forEach(el => {
+      const lines = (parseInt(el.dataset.additions) || 0) + (parseInt(el.dataset.deletions) || 0);
+      totalLines += lines;
+      const checkbox = el.querySelector('.file-reviewed-toggle');
+      if (checkbox && checkbox.checked) {
+        reviewedLines += lines;
+      }
+    });
+
+    const percent = totalLines > 0 ? Math.round(reviewedLines / totalLines * 100) : 0;
+
+    const filesEl = document.getElementById('review-progress-files');
+    const linesEl = document.getElementById('review-progress-lines');
+    const percentEl = document.getElementById('review-progress-percent');
+    const barEl = document.getElementById('review-progress-bar');
+
+    if (filesEl) filesEl.textContent = reviewedFileCount;
+    if (linesEl) linesEl.textContent = reviewedLines;
+    if (percentEl) percentEl.textContent = `${percent}%`;
+    if (barEl) barEl.style.width = `${percent}%`;
   }
 
   // Diff controls
