@@ -376,8 +376,8 @@ export async function createReviewComment(
   path: string,
   line: number,
   side: 'LEFT' | 'RIGHT' = 'RIGHT'
-): Promise<void> {
-  await octokit.pulls.createReviewComment({
+): Promise<number> {
+  const response = await octokit.pulls.createReviewComment({
     owner,
     repo,
     pull_number: prNumber,
@@ -387,6 +387,7 @@ export async function createReviewComment(
     line,
     side,
   });
+  return response.data.id;
 }
 
 // Reply to a review comment

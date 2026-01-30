@@ -380,7 +380,7 @@ function renderInlineCommentThread(
         </div>` : '';
 
       return `
-        <div class="inline-comment" data-comment-id="${comment.id}">
+        <div class="inline-comment" id="comment-${comment.id}" data-comment-id="${comment.id}">
           <div class="inline-comment-header">
             <img src="${escapeHtml(comment.user.avatar_url)}" alt="${escapeHtml(comment.user.login)}" class="comment-avatar">
             <span class="comment-author">${escapeHtml(comment.user.login)}</span>

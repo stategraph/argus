@@ -527,9 +527,9 @@
       }
     });
 
-    // On page load, if there's a #file-N hash, expand and scroll to it
+    // On page load, if there's a hash, expand ancestors and scroll to it
     const hash = window.location.hash;
-    if (hash && hash.startsWith('#file-')) {
+    if (hash && (hash.startsWith('#file-') || hash.startsWith('#comment-'))) {
       const target = document.querySelector(hash);
       if (target) {
         const details = target.closest('details.diff-file');

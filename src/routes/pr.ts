@@ -523,7 +523,7 @@ export async function prRoutes(fastify: FastifyInstance) {
 
       try {
         const octokit = createUserOctokit(request.user!.accessToken);
-        await createReviewComment(
+        const commentId = await createReviewComment(
           octokit,
           owner,
           repo,
@@ -535,7 +535,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           (side as 'LEFT' | 'RIGHT') || 'RIGHT'
         );
 
-        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=files`);
+        return reply.redirect(`/pr/${owner}/${repo}/${number}?tab=files#comment-${commentId}`);
       } catch (err: any) {
         console.error('Error creating inline comment:', err);
         return reply.view('error', {
