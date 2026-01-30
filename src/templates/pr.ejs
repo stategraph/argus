@@ -1096,7 +1096,21 @@
 
       <!-- Files Changed Tab -->
       <div class="pr-tab-content" data-tab-content="files">
-        <div class="pr-files">
+        <div style="display: flex; gap: 1rem; align-items: flex-start;">
+        <% if (!isHistoricalView && !isCrossRevisionView) { %>
+        <div id="review-progress-panel" style="position: sticky; top: 1rem; flex-shrink: 0; width: 180px; background: #f0f4f9; border: 1px solid #d0d7de; border-radius: 6px; padding: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="font-weight: 600; font-size: 0.85rem; color: #1f2328; margin-bottom: 0.5rem;">Review Progress</div>
+          <div style="font-weight: 700; font-size: 1.5rem; color: #0969da; margin-bottom: 0.5rem;" id="review-progress-percent"><%= totalLines > 0 ? Math.round(reviewedLines / totalLines * 100) : 0 %>%</div>
+          <div style="background: #d0d7de; border-radius: 3px; height: 6px; margin-bottom: 0.75rem; overflow: hidden;">
+            <div id="review-progress-bar" style="background: #0969da; height: 100%; border-radius: 3px; transition: width 0.3s ease; width: <%= totalLines > 0 ? Math.round(reviewedLines / totalLines * 100) : 0 %>%;"></div>
+          </div>
+          <div style="font-size: 0.8rem; color: #656d76; line-height: 1.6;">
+            <div><span id="review-progress-files"><%= reviewedFiles.length %></span> / <%= files.length %> files</div>
+            <div><span id="review-progress-lines"><%= reviewedLines %></span> / <%= totalLines %> lines</div>
+          </div>
+        </div>
+        <% } %>
+        <div class="pr-files" style="flex: 1; min-width: 0;">
           <h2>Files changed (<%= files.length %>)</h2>
           <% if (revisions && revisions.length > 1) { %>
             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; background: #f6f8fa; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; flex-wrap: wrap;">
@@ -1158,21 +1172,6 @@
               Viewing historical revision. Comments and review status are not shown for past revisions.
             </div>
           <% } %>
-          <% if (!isHistoricalView && !isCrossRevisionView) { %>
-          <div id="review-progress-panel" style="position: sticky; top: 0; z-index: 50; background: #f0f4f9; border: 1px solid #d0d7de; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-              <span style="font-weight: 600; font-size: 0.9rem; color: #1f2328;">Review Progress</span>
-              <span id="review-progress-percent" style="font-weight: 700; font-size: 0.9rem; color: #0969da;"><%= totalLines > 0 ? Math.round(reviewedLines / totalLines * 100) : 0 %>%</span>
-            </div>
-            <div style="background: #d0d7de; border-radius: 3px; height: 6px; margin-bottom: 0.5rem; overflow: hidden;">
-              <div id="review-progress-bar" style="background: #0969da; height: 100%; border-radius: 3px; transition: width 0.3s ease; width: <%= totalLines > 0 ? Math.round(reviewedLines / totalLines * 100) : 0 %>%;"></div>
-            </div>
-            <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: #656d76;">
-              <span><span id="review-progress-files"><%= reviewedFiles.length %></span> / <%= files.length %> files</span>
-              <span><span id="review-progress-lines"><%= reviewedLines %></span> / <%= totalLines %> lines</span>
-            </div>
-          </div>
-          <% } %>
           <div class="files-toolbar">
             <button id="expand-all-diffs" class="btn btn-small">Expand all diffs</button>
             <button id="collapse-all-diffs" class="btn btn-small">Collapse all diffs</button>
@@ -1181,6 +1180,7 @@
             <%- fileTreeHtml %>
           </div>
         </div>
+        </div><!-- close flex wrapper -->
       </div>
     </div>
 
