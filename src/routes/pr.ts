@@ -139,7 +139,7 @@ export async function prRoutes(fastify: FastifyInstance) {
         // Historical revision view
         let isHistoricalView = false;
         let selectedRevisionId: number | null = null;
-        let historicalFiles = files;
+        let historicalFiles: Array<{ filename: string; status: string; additions: number; deletions: number; patch?: string }> = files;
 
         // Cross-revision comparison view
         let isCrossRevisionView = false;
