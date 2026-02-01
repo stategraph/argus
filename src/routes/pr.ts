@@ -25,7 +25,7 @@ import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
 import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree, fileSlug } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { config } from '../config.js';
-import { computeMergeBase, computeRangeDiff, computeCrossDiff } from '../lib/git.js';
+import { computeMergeBase, computeRangeDiff, computeCrossDiff, getFullFileDiff } from '../lib/git.js';
 import { getReviewedFiles, toggleFileReview } from '../lib/file-reviews.js';
 import { buildFileTree } from '../lib/file-tree-builder.js';
 
@@ -692,6 +692,65 @@ export async function prRoutes(fastify: FastifyInstance) {
       } catch (err: any) {
         console.error('Error toggling syntax highlighting:', err);
         return reply.status(500).send({ error: 'Failed to toggle syntax highlighting' });
+      }
+    }
+  );
+
+  // Full file diff (AJAX)
+  fastify.get(
+    '/pr/:owner/:repo/:number/full-file-diff',
+    async (
+      request: FastifyRequest<{
+        Params: PRParams;
+        Querystring: { path: string; w?: string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      if (!request.user) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { owner, repo, number } = request.params;
+      const prNumber = parseInt(number, 10);
+      const filePath = (request.query as { path?: string }).path;
+      const hideWhitespace = (request.query as { w?: string }).w === '1';
+
+      if (!filePath) {
+        return reply.status(400).send({ error: 'Missing path parameter' });
+      }
+
+      try {
+        const octokit = createUserOctokit(request.user.accessToken);
+        const pr = await fetchPR(octokit, owner, repo, prNumber);
+
+        // Compute merge-base for the diff
+        const mergeBase = await computeMergeBase(
+          owner, repo, pr.base.sha, pr.head.sha, request.user.accessToken
+        );
+
+        const patch = await getFullFileDiff(
+          owner, repo, mergeBase, pr.head.sha, filePath, request.user.accessToken,
+          hideWhitespace ? { ignoreWhitespace: true } : undefined
+        );
+
+        if (!patch) {
+          return reply.send({ html: '<div class="diff-empty-notice">No changes</div>' });
+        }
+
+        const parsedFile = parsePatch(patch, filePath, 'modified');
+        const slug = fileSlug(filePath);
+        const renderedHtml = await renderFile(
+          parsedFile, slug, pr.head.sha, owner, repo, prNumber, [], false, false
+        );
+
+        // Extract just the diff-table content from the rendered HTML
+        const tableMatch = renderedHtml.match(/<table class="diff-table">([\s\S]*?)<\/table>/);
+        const tableHtml = tableMatch ? tableMatch[0] : renderedHtml;
+
+        return reply.send({ html: tableHtml });
+      } catch (err: any) {
+        console.error('Error fetching full file diff:', err);
+        return reply.status(500).send({ error: 'Failed to fetch full file diff' });
       }
     }
   );

@@ -51,6 +51,7 @@
     setupWhitespaceToggle();
     setupFileDeepLinks();
     setupGoToFileModal();
+    setupFullFileToggle();
 
     // Auto-switch to Files tab for historical/cross-revision/explicit-current views
     // (only if no tab is explicitly set in the URL)
@@ -726,6 +727,67 @@
         if (reviewForm && reviewForm.classList.contains('active')) return;
         e.preventDefault();
         openModal();
+      }
+    });
+  }
+
+  // Full file toggle
+  function setupFullFileToggle() {
+    if (!diffContainer) return;
+
+    // Store original diff table HTML per file path
+    const originalDiffTables = new Map();
+
+    diffContainer.addEventListener('change', async (e) => {
+      const checkbox = e.target.closest('.full-file-toggle');
+      if (!checkbox) return;
+
+      const path = checkbox.dataset.path;
+      const fileEl = checkbox.closest('.diff-file');
+      if (!fileEl) return;
+
+      const diffContent = fileEl.querySelector('.diff-content');
+      if (!diffContent) return;
+
+      if (checkbox.checked) {
+        // Stash original HTML
+        originalDiffTables.set(path, diffContent.innerHTML);
+
+        // Show loading state
+        checkbox.disabled = true;
+        const label = checkbox.nextElementSibling || checkbox.parentElement.querySelector('label');
+        const originalLabel = label ? label.textContent : '';
+        if (label) label.textContent = 'Loading...';
+
+        try {
+          const url = new URL(window.location);
+          const w = url.searchParams.get('w');
+          let fetchUrl = `/pr/${config.owner}/${config.repo}/${config.prNumber}/full-file-diff?path=${encodeURIComponent(path)}`;
+          if (w === '1') fetchUrl += '&w=1';
+
+          const response = await fetch(fetchUrl);
+          if (!response.ok) throw new Error('Server returned ' + response.status);
+
+          const data = await response.json();
+          diffContent.innerHTML = data.html;
+        } catch (err) {
+          console.error('Failed to load full file diff:', err);
+          checkbox.checked = false;
+          // Restore original
+          if (originalDiffTables.has(path)) {
+            diffContent.innerHTML = originalDiffTables.get(path);
+            originalDiffTables.delete(path);
+          }
+        } finally {
+          checkbox.disabled = false;
+          if (label) label.textContent = originalLabel;
+        }
+      } else {
+        // Restore original diff
+        if (originalDiffTables.has(path)) {
+          diffContent.innerHTML = originalDiffTables.get(path);
+          originalDiffTables.delete(path);
+        }
       }
     });
   }
