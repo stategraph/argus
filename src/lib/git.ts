@@ -7,6 +7,26 @@ import { config } from '../config.js';
 // Track active git processes for cleanup during shutdown
 const activeProcesses = new Set<ChildProcess>();
 
+// Cache for computeCrossDiff results (keyed by owner/repo:fromSha..toSha:flags)
+interface CrossDiffCacheEntry {
+  data: Array<{ filename: string; status: string; additions: number; deletions: number; patch?: string }>;
+  lastAccessed: number;
+}
+
+const crossDiffCache = new Map<string, CrossDiffCacheEntry>();
+
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const CACHE_EVICT_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of crossDiffCache) {
+    if (now - entry.lastAccessed > CACHE_MAX_AGE_MS) {
+      crossDiffCache.delete(key);
+    }
+  }
+}, CACHE_EVICT_INTERVAL_MS).unref();
+
 export interface GitCommandResult {
   stdout: string;
   stderr: string;
@@ -172,6 +192,18 @@ export async function fetchRefs(
 }
 
 /**
+ * Check if a ref/SHA already exists in the local repo
+ */
+async function hasRef(repoPath: string, sha: string, token?: string): Promise<boolean> {
+  try {
+    await execGit(['cat-file', '-t', sha], repoPath, token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Compute merge-base between two refs
  */
 export async function computeMergeBase(
@@ -184,7 +216,11 @@ export async function computeMergeBase(
   const repoPath = getRepoPath(owner, repo);
 
   await ensureRepo(owner, repo, token);
-  await fetchRefs(owner, repo, [ref1, ref2], token);
+
+  const refsToFetch: string[] = [];
+  if (!await hasRef(repoPath, ref1, token)) refsToFetch.push(ref1);
+  if (!await hasRef(repoPath, ref2, token)) refsToFetch.push(ref2);
+  if (refsToFetch.length > 0) await fetchRefs(owner, repo, refsToFetch, token);
 
   try {
     const result = await execGit(['merge-base', ref1, ref2], repoPath, token);
@@ -245,10 +281,22 @@ export async function computeCrossDiff(
   deletions: number;
   patch?: string;
 }>> {
+  const cacheKey = `${owner}/${repo}:${fromSha}..${toSha}:${options?.ignoreWhitespace ? 'w' : ''}`;
+  const cached = crossDiffCache.get(cacheKey);
+  if (cached) {
+    cached.lastAccessed = Date.now();
+    return cached.data;
+  }
+
   const repoPath = getRepoPath(owner, repo);
 
   await ensureRepo(owner, repo, token);
-  await fetchRefs(owner, repo, [fromSha, toSha], token);
+
+  // Only fetch refs not already available locally
+  const refsToFetch: string[] = [];
+  if (!await hasRef(repoPath, fromSha, token)) refsToFetch.push(fromSha);
+  if (!await hasRef(repoPath, toSha, token)) refsToFetch.push(toSha);
+  if (refsToFetch.length > 0) await fetchRefs(owner, repo, refsToFetch, token);
 
   const wFlag = options?.ignoreWhitespace ? ['-w'] : [];
 
@@ -340,6 +388,7 @@ export async function computeCrossDiff(
     });
   }
 
+  crossDiffCache.set(cacheKey, { data: files, lastAccessed: Date.now() });
   return files;
 }
 
