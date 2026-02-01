@@ -256,7 +256,7 @@ export async function prRoutes(fastify: FastifyInstance) {
             parsedFiles.push({
               file: diffFile,
               path: file.filename,
-              renderedHtml: await renderFile(diffFile, slug, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting, file.sha || ''),
+              renderedHtml: await renderFile(diffFile, slug, pr.head.sha, owner, repo, prNumber, fileComments, reviewedFilesSet.has(file.filename), enableHighlighting, file.sha || fileShaMap.get(file.filename) || ''),
               sidebarHtml: renderFileSidebarItem(diffFile, slug),
               truncated: false,
               totalLines: 0,
@@ -282,7 +282,7 @@ export async function prRoutes(fastify: FastifyInstance) {
               fileComments,
               reviewedFilesSet.has(file.filename),
               enableHighlighting,
-              file.sha || ''
+              file.sha || fileShaMap.get(file.filename) || ''
             ),
             sidebarHtml: renderFileSidebarItem(parsedFile, slug),
             truncated: false,
