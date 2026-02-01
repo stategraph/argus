@@ -242,6 +242,25 @@ a.file-deep-link:hover { text-decoration: underline; }
 }
 
 /* File review */
+.full-file-checkbox {
+  margin-left: 1rem;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.full-file-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  margin: 0;
+}
+
+.full-file-checkbox label {
+  cursor: pointer;
+  user-select: none;
+  color: #666;
+}
+
 .file-review-checkbox {
   margin-left: 1rem;
   font-size: 0.875rem;

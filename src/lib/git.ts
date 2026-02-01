@@ -392,6 +392,53 @@ export async function computeCrossDiff(
   return files;
 }
 
+/**
+ * Get full-file diff (maximum context) for a single file between two commits.
+ * Returns the raw patch string or null if no diff exists.
+ */
+export async function getFullFileDiff(
+  owner: string,
+  repo: string,
+  fromSha: string,
+  toSha: string,
+  filePath: string,
+  token: string,
+  options?: { ignoreWhitespace?: boolean }
+): Promise<string | null> {
+  const repoPath = getRepoPath(owner, repo);
+
+  await ensureRepo(owner, repo, token);
+
+  const refsToFetch: string[] = [];
+  if (!await hasRef(repoPath, fromSha, token)) refsToFetch.push(fromSha);
+  if (!await hasRef(repoPath, toSha, token)) refsToFetch.push(toSha);
+  if (refsToFetch.length > 0) await fetchRefs(owner, repo, refsToFetch, token);
+
+  const wFlag = options?.ignoreWhitespace ? ['-w'] : [];
+
+  const result = await execGit(
+    ['diff', '-U99999', ...wFlag, '--no-color', fromSha, toSha, '--', filePath],
+    repoPath,
+    token
+  );
+
+  const diffOutput = result.stdout;
+  if (!diffOutput.trim()) return null;
+
+  // Extract just the patch portion (from first @@ line onward)
+  const lines = diffOutput.split('\n');
+  let patchStartIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('@@')) {
+      patchStartIdx = i;
+      break;
+    }
+  }
+
+  if (patchStartIdx < 0) return null;
+  return lines.slice(patchStartIdx).join('\n').trimEnd();
+}
+
 export function cleanupGitProcesses(): void {
   if (activeProcesses.size === 0) return;
 

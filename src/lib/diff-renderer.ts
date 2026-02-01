@@ -190,6 +190,18 @@ export async function renderFile(
     </button>
   ` : '';
 
+  // Full file toggle checkbox
+  const fullFileCheckbox = `
+    <span class="full-file-checkbox">
+      <input type="checkbox"
+             id="full-file-${fileId}"
+             class="full-file-toggle"
+             data-path="${escapeHtml(path)}"
+             title="Show full file with diff context">
+      <label for="full-file-${fileId}">Full file</label>
+    </span>
+  `;
+
   // Review checkbox — collapses the diff when checked (via client-side JS)
   const reviewCheckbox = `
     <span class="file-review-checkbox">
@@ -286,7 +298,7 @@ export async function renderFile(
             <span class="file-name">${escapeHtml(filename)}</span>
           </a>
         </span>
-        <span class="file-stats">${statsHtml}${syntaxToggle}${reviewCheckbox}</span>
+        <span class="file-stats">${statsHtml}${syntaxToggle}${fullFileCheckbox}${reviewCheckbox}</span>
       </summary>
       <div class="diff-content">
         <table class="diff-table">
