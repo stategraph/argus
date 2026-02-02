@@ -25,7 +25,7 @@ import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
 import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree, fileSlug } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { config } from '../config.js';
-import { computeMergeBase, computeRangeDiff, computeCrossDiff, getFullFileDiff } from '../lib/git.js';
+import { computeMergeBase, computeRangeDiff, computeCrossDiff, computeCrossRevisionDiff, getFullFileDiff } from '../lib/git.js';
 import { getReviewedFiles, toggleFileReview } from '../lib/file-reviews.js';
 import { buildFileTree } from '../lib/file-tree-builder.js';
 
@@ -167,9 +167,25 @@ export async function prRoutes(fastify: FastifyInstance) {
               fromRevisionId = fromId;
               toRevisionId = toId;
 
-              // Two-dot git diff between the two head SHAs
-              historicalFiles = await computeCrossDiff(
-                owner, repo, fromRev.head_sha, toRev.head_sha, request.user!.accessToken,
+              // Compute merge-bases for both revisions to exclude base branch changes
+              let fromMergeBase = fromRev.merge_base_sha;
+              if (!fromMergeBase) {
+                fromMergeBase = await computeMergeBase(
+                  owner, repo, fromRev.base_sha, fromRev.head_sha, request.user!.accessToken
+                );
+                query(`UPDATE pr_revisions SET merge_base_sha = ? WHERE id = ?`, [fromMergeBase, fromId]);
+              }
+              let toMergeBase = toRev.merge_base_sha;
+              if (!toMergeBase) {
+                toMergeBase = await computeMergeBase(
+                  owner, repo, toRev.base_sha, toRev.head_sha, request.user!.accessToken
+                );
+                query(`UPDATE pr_revisions SET merge_base_sha = ? WHERE id = ?`, [toMergeBase, toId]);
+              }
+
+              historicalFiles = await computeCrossRevisionDiff(
+                owner, repo, fromMergeBase, fromRev.head_sha, toMergeBase, toRev.head_sha,
+                request.user!.accessToken,
                 hideWhitespace ? { ignoreWhitespace: true } : undefined
               );
             }
