@@ -202,6 +202,18 @@ export async function renderFile(
     </span>
   `;
 
+  // Render link for markdown and asciidoc files
+  const isMarkdownOrAsciiDoc = path.match(/\.(md|adoc|asciidoc)$/i);
+  const renderLink = isMarkdownOrAsciiDoc ? `
+    <a href="/pr/${owner}/${repo}/${prNumber}/render-file?path=${encodeURIComponent(path)}&sha=${headSha}"
+       class="btn-tiny"
+       target="_blank"
+       style="margin-left: 0.5rem;"
+       title="View rendered ${path.match(/\.md$/i) ? 'markdown' : 'AsciiDoc'}">
+      👁 Rendered
+    </a>
+  ` : '';
+
   // Review checkbox — collapses the diff when checked (via client-side JS)
   const reviewCheckbox = `
     <span class="file-review-checkbox">
@@ -228,7 +240,7 @@ export async function renderFile(
               <span class="file-name">${escapeHtml(filename)}</span>
             </span>
           </span>
-          <span class="file-stats">${statsHtml}${syntaxToggle}${reviewCheckbox}</span>
+          <span class="file-stats">${statsHtml}${syntaxToggle}${renderLink}${reviewCheckbox}</span>
         </summary>
         <div class="diff-content">
           <div class="diff-binary-notice">Binary file not shown</div>
@@ -248,7 +260,7 @@ export async function renderFile(
               <span class="file-name">${escapeHtml(filename)}</span>
             </span>
           </span>
-          <span class="file-stats">${statsHtml}${syntaxToggle}${reviewCheckbox}</span>
+          <span class="file-stats">${statsHtml}${syntaxToggle}${renderLink}${reviewCheckbox}</span>
         </summary>
         <div class="diff-content">
           <div class="diff-empty-notice">No changes</div>
@@ -298,7 +310,7 @@ export async function renderFile(
             <span class="file-name">${escapeHtml(filename)}</span>
           </a>
         </span>
-        <span class="file-stats">${statsHtml}${syntaxToggle}${fullFileCheckbox}${reviewCheckbox}</span>
+        <span class="file-stats">${statsHtml}${syntaxToggle}${fullFileCheckbox}${renderLink}${reviewCheckbox}</span>
       </summary>
       <div class="diff-content">
         <table class="diff-table">
