@@ -202,6 +202,19 @@ export async function renderFile(
     </span>
   `;
 
+  // Rendered preview checkbox for markdown/asciidoc files
+  const isRenderable = /\.(md|adoc)$/i.test(path);
+  const renderedCheckbox = isRenderable ? `
+    <span class="rendered-checkbox">
+      <input type="checkbox"
+             id="rendered-${fileId}"
+             class="rendered-toggle"
+             data-path="${escapeHtml(path)}"
+             title="Show rendered preview">
+      <label for="rendered-${fileId}">Rendered</label>
+    </span>
+  ` : '';
+
   // Review checkbox — collapses the diff when checked (via client-side JS)
   const reviewCheckbox = `
     <span class="file-review-checkbox">
@@ -298,7 +311,7 @@ export async function renderFile(
             <span class="file-name">${escapeHtml(filename)}</span>
           </a>
         </span>
-        <span class="file-stats">${statsHtml}${syntaxToggle}${fullFileCheckbox}${reviewCheckbox}</span>
+        <span class="file-stats">${statsHtml}${syntaxToggle}${fullFileCheckbox}${renderedCheckbox}${reviewCheckbox}</span>
       </summary>
       <div class="diff-content">
         <table class="diff-table">

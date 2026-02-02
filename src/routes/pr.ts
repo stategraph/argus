@@ -19,11 +19,13 @@ import {
   replyToReviewComment,
   fetchPRTimeline,
   mergePR,
+  fetchFileContent,
 } from '../lib/github.js';
 import { query } from '../db/index.js';
 import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
 import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree, fileSlug } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
+import { renderAsciidoc } from '../lib/asciidoc.js';
 import { config } from '../config.js';
 import { computeMergeBase, computeRangeDiff, computeCrossDiff, computeCrossRevisionDiff, getFullFileDiff } from '../lib/git.js';
 import { getReviewedFiles, toggleFileReview } from '../lib/file-reviews.js';
@@ -767,6 +769,48 @@ export async function prRoutes(fastify: FastifyInstance) {
       } catch (err: any) {
         console.error('Error fetching full file diff:', err);
         return reply.status(500).send({ error: 'Failed to fetch full file diff' });
+      }
+    }
+  );
+
+  // Rendered preview for markdown/asciidoc files (AJAX)
+  fastify.get(
+    '/pr/:owner/:repo/:number/rendered-view',
+    async (
+      request: FastifyRequest<{
+        Params: PRParams;
+        Querystring: { path: string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      if (!request.user) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { owner, repo, number } = request.params;
+      const prNumber = parseInt(number, 10);
+      const filePath = (request.query as { path?: string }).path;
+
+      if (!filePath) {
+        return reply.status(400).send({ error: 'Missing path parameter' });
+      }
+
+      try {
+        const octokit = createUserOctokit(request.user.accessToken);
+        const pr = await fetchPR(octokit, owner, repo, prNumber);
+        const content = await fetchFileContent(octokit, owner, repo, filePath, pr.head.sha);
+
+        let html: string;
+        if (/\.adoc$/i.test(filePath)) {
+          html = renderAsciidoc(content);
+        } else {
+          html = await renderMarkdown(content);
+        }
+
+        return reply.send({ html: `<div class="rendered-preview markdown-body">${html}</div>` });
+      } catch (err: any) {
+        console.error('Error fetching rendered view:', err);
+        return reply.status(500).send({ error: 'Failed to fetch rendered view' });
       }
     }
   );
