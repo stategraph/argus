@@ -439,6 +439,124 @@ export async function getFullFileDiff(
   return lines.slice(patchStartIdx).join('\n').trimEnd();
 }
 
+/**
+ * Run git merge-tree --write-tree, tolerating exit code 1 (conflicts).
+ * Returns the tree SHA from the first line of stdout.
+ */
+async function execGitMergeTree(
+  repoPath: string,
+  mergeBase: string,
+  branch1: string,
+  branch2: string,
+  token?: string
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(
+      'git',
+      ['merge-tree', '--write-tree', `--merge-base=${mergeBase}`, branch1, branch2],
+      { cwd: repoPath, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }
+    );
+
+    activeProcesses.add(proc);
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data) => { stderr += data.toString(); });
+
+    proc.on('close', (code) => {
+      activeProcesses.delete(proc);
+      // exit 0 = clean merge, exit 1 = conflicts (tree still written)
+      if (code === 0 || code === 1) {
+        const treeSha = stdout.trim().split('\n')[0];
+        if (treeSha && /^[0-9a-f]{40,}$/.test(treeSha)) {
+          resolve(treeSha);
+        } else {
+          const sanitized = token ? sanitizeError(stderr, token) : stderr;
+          reject(new Error(`merge-tree produced no valid tree SHA: ${sanitized}`));
+        }
+      } else {
+        const sanitized = token ? sanitizeError(stderr, token) : stderr;
+        reject(new Error(`merge-tree failed (exit ${code}): ${sanitized}`));
+      }
+    });
+
+    proc.on('error', (err) => {
+      activeProcesses.delete(proc);
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Compute a cross-revision diff that excludes base branch changes.
+ *
+ * Uses a three-way merge (via `git merge-tree`) to "rebase" fromHead's
+ * changes onto toMergeBase, producing a tree that represents rev1's PR
+ * changes as if they were applied to the same base as rev2. Diffing that
+ * rebased tree against toHead shows only what the PR author changed between
+ * the two revisions.
+ *
+ * If the merge bases are identical (base branch didn't change), falls back
+ * to a simple two-dot diff since no rebasing is needed.
+ */
+export async function computeCrossRevisionDiff(
+  owner: string,
+  repo: string,
+  fromMergeBase: string,
+  fromHead: string,
+  toMergeBase: string,
+  toHead: string,
+  token: string,
+  options?: { ignoreWhitespace?: boolean }
+): Promise<Array<{
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  patch?: string;
+}>> {
+  // If merge bases are the same, no base branch changes to exclude
+  if (fromMergeBase === toMergeBase) {
+    return computeCrossDiff(owner, repo, fromHead, toHead, token, options);
+  }
+
+  const repoPath = getRepoPath(owner, repo);
+
+  await ensureRepo(owner, repo, token);
+
+  // Ensure all refs are available locally
+  const refsToFetch: string[] = [];
+  for (const ref of [fromMergeBase, fromHead, toMergeBase, toHead]) {
+    if (!await hasRef(repoPath, ref, token)) refsToFetch.push(ref);
+  }
+  if (refsToFetch.length > 0) await fetchRefs(owner, repo, refsToFetch, token);
+
+  // Three-way merge: base=fromMergeBase, ours=toMergeBase, theirs=fromHead
+  // This produces a tree representing fromHead's PR changes rebased onto toMergeBase.
+  // Note: merge-tree exits 0 on clean merge, 1 on conflicts (but still outputs a tree).
+  // We use execGitRaw to handle both cases.
+  let rebasedSha: string;
+  try {
+    const rebasedTree = await execGitMergeTree(
+      repoPath, fromMergeBase, toMergeBase, fromHead, token
+    );
+
+    // Create a commit object from the rebased tree so we can diff it
+    const commitResult = await execGit(
+      ['commit-tree', rebasedTree, '-p', toMergeBase, '-m', 'virtual-rebased'],
+      repoPath,
+      token
+    );
+    rebasedSha = commitResult.stdout.trim();
+  } catch {
+    // merge-tree failed entirely — fall back to naive diff
+    return computeCrossDiff(owner, repo, fromHead, toHead, token, options);
+  }
+
+  return computeCrossDiff(owner, repo, rebasedSha, toHead, token, options);
+}
+
 export function cleanupGitProcesses(): void {
   if (activeProcesses.size === 0) return;
 

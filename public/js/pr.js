@@ -52,6 +52,7 @@
     setupFileDeepLinks();
     setupGoToFileModal();
     setupFullFileToggle();
+    setupRenderedToggle();
 
     // Auto-switch to Files tab for historical/cross-revision/explicit-current views
     // (only if no tab is explicitly set in the URL)
@@ -787,6 +788,58 @@
         if (originalDiffTables.has(path)) {
           diffContent.innerHTML = originalDiffTables.get(path);
           originalDiffTables.delete(path);
+        }
+      }
+    });
+  }
+
+  // Rendered preview toggle
+  function setupRenderedToggle() {
+    if (!diffContainer) return;
+
+    const originalDiffContents = new Map();
+
+    diffContainer.addEventListener('change', async (e) => {
+      const checkbox = e.target.closest('.rendered-toggle');
+      if (!checkbox) return;
+
+      const path = checkbox.dataset.path;
+      const fileEl = checkbox.closest('.diff-file');
+      if (!fileEl) return;
+
+      const diffContent = fileEl.querySelector('.diff-content');
+      if (!diffContent) return;
+
+      if (checkbox.checked) {
+        originalDiffContents.set(path, diffContent.innerHTML);
+
+        checkbox.disabled = true;
+        const label = checkbox.parentElement.querySelector('label');
+        const originalLabel = label ? label.textContent : '';
+        if (label) label.textContent = 'Loading...';
+
+        try {
+          const fetchUrl = `/pr/${config.owner}/${config.repo}/${config.prNumber}/rendered-view?path=${encodeURIComponent(path)}`;
+          const response = await fetch(fetchUrl);
+          if (!response.ok) throw new Error('Server returned ' + response.status);
+
+          const data = await response.json();
+          diffContent.innerHTML = data.html;
+        } catch (err) {
+          console.error('Failed to load rendered view:', err);
+          checkbox.checked = false;
+          if (originalDiffContents.has(path)) {
+            diffContent.innerHTML = originalDiffContents.get(path);
+            originalDiffContents.delete(path);
+          }
+        } finally {
+          checkbox.disabled = false;
+          if (label) label.textContent = originalLabel;
+        }
+      } else {
+        if (originalDiffContents.has(path)) {
+          diffContent.innerHTML = originalDiffContents.get(path);
+          originalDiffContents.delete(path);
         }
       }
     });

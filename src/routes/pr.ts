@@ -19,6 +19,7 @@ import {
   replyToReviewComment,
   fetchPRTimeline,
   mergePR,
+  fetchFileContent,
 } from '../lib/github.js';
 import { query } from '../db/index.js';
 import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
@@ -26,7 +27,7 @@ import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpl
 import { renderMarkdown } from '../lib/markdown.js';
 import { renderAsciidoc } from '../lib/asciidoc.js';
 import { config } from '../config.js';
-import { computeMergeBase, computeRangeDiff, computeCrossDiff, getFullFileDiff } from '../lib/git.js';
+import { computeMergeBase, computeRangeDiff, computeCrossDiff, computeCrossRevisionDiff, getFullFileDiff } from '../lib/git.js';
 import { getReviewedFiles, toggleFileReview } from '../lib/file-reviews.js';
 import { buildFileTree } from '../lib/file-tree-builder.js';
 
@@ -168,9 +169,25 @@ export async function prRoutes(fastify: FastifyInstance) {
               fromRevisionId = fromId;
               toRevisionId = toId;
 
-              // Two-dot git diff between the two head SHAs
-              historicalFiles = await computeCrossDiff(
-                owner, repo, fromRev.head_sha, toRev.head_sha, request.user!.accessToken,
+              // Compute merge-bases for both revisions to exclude base branch changes
+              let fromMergeBase = fromRev.merge_base_sha;
+              if (!fromMergeBase) {
+                fromMergeBase = await computeMergeBase(
+                  owner, repo, fromRev.base_sha, fromRev.head_sha, request.user!.accessToken
+                );
+                query(`UPDATE pr_revisions SET merge_base_sha = ? WHERE id = ?`, [fromMergeBase, fromId]);
+              }
+              let toMergeBase = toRev.merge_base_sha;
+              if (!toMergeBase) {
+                toMergeBase = await computeMergeBase(
+                  owner, repo, toRev.base_sha, toRev.head_sha, request.user!.accessToken
+                );
+                query(`UPDATE pr_revisions SET merge_base_sha = ? WHERE id = ?`, [toMergeBase, toId]);
+              }
+
+              historicalFiles = await computeCrossRevisionDiff(
+                owner, repo, fromMergeBase, fromRev.head_sha, toMergeBase, toRev.head_sha,
+                request.user!.accessToken,
                 hideWhitespace ? { ignoreWhitespace: true } : undefined
               );
             }
@@ -756,6 +773,48 @@ export async function prRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // Rendered preview for markdown/asciidoc files (AJAX)
+  fastify.get(
+    '/pr/:owner/:repo/:number/rendered-view',
+    async (
+      request: FastifyRequest<{
+        Params: PRParams;
+        Querystring: { path: string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      if (!request.user) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { owner, repo, number } = request.params;
+      const prNumber = parseInt(number, 10);
+      const filePath = (request.query as { path?: string }).path;
+
+      if (!filePath) {
+        return reply.status(400).send({ error: 'Missing path parameter' });
+      }
+
+      try {
+        const octokit = createUserOctokit(request.user.accessToken);
+        const pr = await fetchPR(octokit, owner, repo, prNumber);
+        const content = await fetchFileContent(octokit, owner, repo, filePath, pr.head.sha);
+
+        let html: string;
+        if (/\.adoc$/i.test(filePath)) {
+          html = renderAsciidoc(content);
+        } else {
+          html = await renderMarkdown(content);
+        }
+
+        return reply.send({ html: `<div class="rendered-preview markdown-body">${html}</div>` });
+      } catch (err: any) {
+        console.error('Error fetching rendered view:', err);
+        return reply.status(500).send({ error: 'Failed to fetch rendered view' });
+      }
+    }
+  );
+
   // Commits list
   fastify.get(
     '/pr/:owner/:repo/:number/commits',
@@ -1132,87 +1191,6 @@ export async function prRoutes(fastify: FastifyInstance) {
       return reply.redirect(
         `/pr/${owner}/${repo}/${prNumber}/range-diff/${fromId}/${toId}`
       );
-    }
-  );
-
-  // Render markdown/asciidoc file
-  fastify.get(
-    '/pr/:owner/:repo/:number/render-file',
-    async (
-      request: FastifyRequest<{
-        Params: PRParams;
-        Querystring: { path: string; sha: string };
-      }>,
-      reply: FastifyReply
-    ) => {
-      if (!requireAuth(request, reply)) return;
-
-      const { owner, repo, number } = request.params;
-      const prNumber = parseInt(number, 10);
-      const { path, sha } = request.query as { path: string; sha: string };
-
-      if (!path || !sha) {
-        return reply.status(400).view('error', {
-          title: 'Error - Argus',
-          user: request.user,
-          message: 'Missing path or sha parameter',
-        });
-      }
-
-      try {
-        const octokit = createUserOctokit(request.user!.accessToken);
-
-        // Fetch file content from GitHub
-        const { data: fileData } = await octokit.rest.repos.getContent({
-          owner,
-          repo,
-          path,
-          ref: sha,
-        });
-
-        if (Array.isArray(fileData) || fileData.type !== 'file') {
-          return reply.status(400).view('error', {
-            title: 'Error - Argus',
-            user: request.user,
-            message: 'Path must point to a file, not a directory',
-          });
-        }
-
-        // Decode content from base64
-        const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
-
-        // Determine file type and render accordingly
-        let renderedContent: string;
-        if (path.match(/\.md$/i)) {
-          renderedContent = await renderMarkdown(content);
-        } else if (path.match(/\.(adoc|asciidoc)$/i)) {
-          renderedContent = renderAsciidoc(content);
-        } else {
-          return reply.status(400).view('error', {
-            title: 'Error - Argus',
-            user: request.user,
-            message: 'Unsupported file type. Only .md, .adoc, and .asciidoc files are supported.',
-          });
-        }
-
-        return reply.view('render-file', {
-          title: `${path} - Argus`,
-          user: request.user,
-          owner,
-          repo,
-          prNumber,
-          filePath: path,
-          sha,
-          renderedContent,
-        });
-      } catch (err: any) {
-        console.error('Error rendering file:', err);
-        return reply.view('error', {
-          title: 'Error - Argus',
-          user: request.user,
-          message: `Failed to render file: ${err.message}`,
-        });
-      }
     }
   );
 

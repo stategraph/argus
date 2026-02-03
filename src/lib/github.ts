@@ -623,6 +623,25 @@ export async function fetchPRTimeline(
 }
 
 // Merge a pull request
+// Fetch raw file content at a specific ref
+export async function fetchFileContent(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  path: string,
+  ref: string
+): Promise<string> {
+  const response = await octokit.repos.getContent({
+    owner,
+    repo,
+    path,
+    ref,
+    mediaType: { format: 'raw' },
+  });
+
+  return response.data as unknown as string;
+}
+
 export async function mergePR(
   octokit: Octokit,
   owner: string,
