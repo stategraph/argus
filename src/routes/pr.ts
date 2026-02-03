@@ -24,7 +24,6 @@ import { query } from '../db/index.js';
 import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
 import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree, fileSlug } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
-import { renderAsciidoc } from '../lib/asciidoc.js';
 import { config } from '../config.js';
 import { computeMergeBase, computeRangeDiff, computeCrossDiff, getFullFileDiff } from '../lib/git.js';
 import { getReviewedFiles, toggleFileReview } from '../lib/file-reviews.js';
@@ -1132,87 +1131,6 @@ export async function prRoutes(fastify: FastifyInstance) {
       return reply.redirect(
         `/pr/${owner}/${repo}/${prNumber}/range-diff/${fromId}/${toId}`
       );
-    }
-  );
-
-  // Render markdown/asciidoc file
-  fastify.get(
-    '/pr/:owner/:repo/:number/render-file',
-    async (
-      request: FastifyRequest<{
-        Params: PRParams;
-        Querystring: { path: string; sha: string };
-      }>,
-      reply: FastifyReply
-    ) => {
-      if (!requireAuth(request, reply)) return;
-
-      const { owner, repo, number } = request.params;
-      const prNumber = parseInt(number, 10);
-      const { path, sha } = request.query as { path: string; sha: string };
-
-      if (!path || !sha) {
-        return reply.status(400).view('error', {
-          title: 'Error - Argus',
-          user: request.user,
-          message: 'Missing path or sha parameter',
-        });
-      }
-
-      try {
-        const octokit = createUserOctokit(request.user!.accessToken);
-
-        // Fetch file content from GitHub
-        const { data: fileData } = await octokit.rest.repos.getContent({
-          owner,
-          repo,
-          path,
-          ref: sha,
-        });
-
-        if (Array.isArray(fileData) || fileData.type !== 'file') {
-          return reply.status(400).view('error', {
-            title: 'Error - Argus',
-            user: request.user,
-            message: 'Path must point to a file, not a directory',
-          });
-        }
-
-        // Decode content from base64
-        const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
-
-        // Determine file type and render accordingly
-        let renderedContent: string;
-        if (path.match(/\.md$/i)) {
-          renderedContent = await renderMarkdown(content);
-        } else if (path.match(/\.(adoc|asciidoc)$/i)) {
-          renderedContent = renderAsciidoc(content);
-        } else {
-          return reply.status(400).view('error', {
-            title: 'Error - Argus',
-            user: request.user,
-            message: 'Unsupported file type. Only .md, .adoc, and .asciidoc files are supported.',
-          });
-        }
-
-        return reply.view('render-file', {
-          title: `${path} - Argus`,
-          user: request.user,
-          owner,
-          repo,
-          prNumber,
-          filePath: path,
-          sha,
-          renderedContent,
-        });
-      } catch (err: any) {
-        console.error('Error rendering file:', err);
-        return reply.view('error', {
-          title: 'Error - Argus',
-          user: request.user,
-          message: `Failed to render file: ${err.message}`,
-        });
-      }
     }
   );
 

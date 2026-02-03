@@ -18,7 +18,6 @@
     "@fastify/static": "^7.0.4",
     "@fastify/view": "^9.1.0",
     "@octokit/rest": "^21.0.2",
-    "asciidoctor": "^3.0.4",
     "better-sqlite3": "^11.10.0",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
