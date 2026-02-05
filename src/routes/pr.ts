@@ -256,7 +256,7 @@ export async function prRoutes(fastify: FastifyInstance) {
         const filesToRender = (isHistoricalView || isCrossRevisionView || hideWhitespace) ? historicalFiles : files;
         for (let i = 0; i < filesToRender.length; i++) {
           const file = filesToRender[i];
-          const fileComments = (isHistoricalView || isCrossRevisionView || hideWhitespace) ? [] : (commentsByFile.get(file.filename) || []);
+          const fileComments = (isHistoricalView || isCrossRevisionView) ? [] : (commentsByFile.get(file.filename) || []);
 
           if (!file.patch) {
             // Binary file or no changes
