@@ -746,19 +746,33 @@ export async function prRoutes(fastify: FastifyInstance) {
           owner, repo, pr.base.sha, pr.head.sha, request.user.accessToken
         );
 
-        const patch = await getFullFileDiff(
-          owner, repo, mergeBase, pr.head.sha, filePath, request.user.accessToken,
-          hideWhitespace ? { ignoreWhitespace: true } : undefined
-        );
+        // Fetch review comments and full file diff in parallel
+        const [patch, reviewComments] = await Promise.all([
+          getFullFileDiff(
+            owner, repo, mergeBase, pr.head.sha, filePath, request.user.accessToken,
+            hideWhitespace ? { ignoreWhitespace: true } : undefined
+          ),
+          fetchReviewComments(octokit, owner, repo, prNumber),
+        ]);
 
         if (!patch) {
           return reply.send({ html: '<div class="diff-empty-notice">No changes</div>' });
         }
 
+        // Filter comments to this file and render markdown
+        const fileComments = await Promise.all(
+          reviewComments
+            .filter(c => c.path === filePath)
+            .map(async (c) => ({
+              ...c,
+              renderedBody: await renderMarkdown(c.body),
+            }))
+        );
+
         const parsedFile = parsePatch(patch, filePath, 'modified');
         const slug = fileSlug(filePath);
         const renderedHtml = await renderFile(
-          parsedFile, slug, pr.head.sha, owner, repo, prNumber, [], false, false
+          parsedFile, slug, pr.head.sha, owner, repo, prNumber, fileComments, false, false
         );
 
         // Extract just the diff-table content from the rendered HTML

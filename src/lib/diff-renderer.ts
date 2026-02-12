@@ -1,4 +1,4 @@
-import { DiffFile, DiffLine } from './diff-parser.js';
+import { DiffFile, DiffLine, DiffHunk, parseHunkString } from './diff-parser.js';
 import { detectLanguage, highlightCode } from './syntax-highlighter.js';
 
 // Convert a file path to a URL-safe slug for stable deep linking
@@ -139,6 +139,44 @@ function renderHunkHeader(header: string): string {
     </tr>`;
 }
 
+// Check if a line number + side already exists in any hunk
+function isLineInHunks(line: number, side: 'LEFT' | 'RIGHT', hunks: DiffHunk[]): boolean {
+  for (const hunk of hunks) {
+    for (const diffLine of hunk.lines) {
+      if (side === 'LEFT' && diffLine.oldLineNum === line && diffLine.type === 'del') return true;
+      if (side === 'RIGHT' && diffLine.newLineNum === line && diffLine.type !== 'del') return true;
+    }
+  }
+  return false;
+}
+
+// Inject synthetic hunks for comments on lines not in any existing hunk
+function injectOrphanedCommentHunks(
+  hunks: DiffHunk[],
+  comments: Array<{ line: number | null; side: 'LEFT' | 'RIGHT'; diff_hunk?: string }>
+): DiffHunk[] {
+  const syntheticHunks = new Map<string, DiffHunk>();
+
+  for (const comment of comments) {
+    if (comment.line === null || !comment.diff_hunk) continue;
+    if (isLineInHunks(comment.line, comment.side, hunks)) continue;
+
+    const parsed = parseHunkString(comment.diff_hunk);
+    if (parsed.lines.length === 0) continue;
+
+    // Deduplicate by hunk header
+    if (!syntheticHunks.has(parsed.header)) {
+      syntheticHunks.set(parsed.header, parsed);
+    }
+  }
+
+  if (syntheticHunks.size === 0) return hunks;
+
+  const merged = [...hunks, ...syntheticHunks.values()];
+  merged.sort((a, b) => a.newStart - b.newStart);
+  return merged;
+}
+
 // Render a file diff
 export async function renderFile(
   file: DiffFile,
@@ -156,6 +194,7 @@ export async function renderFile(
     path: string;
     line: number | null;
     side: 'LEFT' | 'RIGHT';
+    diff_hunk?: string;
   }> = [],
   isReviewed: boolean = false,
   enableHighlighting: boolean = false,
@@ -281,9 +320,12 @@ export async function renderFile(
     }
   }
 
+  // Merge in synthetic hunks for orphaned comments (comments on lines outside visible hunks)
+  const mergedHunks = injectOrphanedCommentHunks(file.hunks, comments);
+
   // Render diff table (await async renderLine calls)
   let tableRows = '';
-  for (const hunk of file.hunks) {
+  for (const hunk of mergedHunks) {
     tableRows += renderHunkHeader(hunk.header);
     for (const line of hunk.lines) {
       tableRows += await renderLine(line, fileId, path, headSha, owner, repo, prNumber, language, enableHighlighting);
