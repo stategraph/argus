@@ -3,15 +3,24 @@ import { nameToEmoji } from 'gemoji';
 import { getHighlighterInstance } from './syntax-highlighter.js';
 
 // Configure marked for safe rendering with GitHub-flavored markdown
+// NOTE: All custom renderers must be in the same async marked.use() call,
+// because async mode makes parseInline() return Promises.
 marked.use({
   gfm: true,
   breaks: true,
+});
+
+// Async extension for syntax highlighting code blocks and custom renderers
+marked.use({
+  async: true,
   renderer: {
-    // Make links open in new tab
-    link({ href, title, tokens }) {
-      const text = this.parser.parseInline(tokens);
-      const titleAttr = title ? ` title="${title}"` : '';
-      return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+    // Make links open in new tab (async to await parseInline which returns Promise in async mode)
+    link({ href, title, tokens }: any): any {
+      return (async () => {
+        const text = await this.parser.parseInline(tokens);
+        const titleAttr = title ? ` title="${title}"` : '';
+        return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+      })();
     },
     // Handle checkboxes in task lists
     listitem({ text, task, checked }) {
@@ -23,13 +32,6 @@ marked.use({
       }
       return `<li>${text}</li>`;
     },
-  },
-});
-
-// Async extension for syntax highlighting code blocks
-marked.use({
-  async: true,
-  renderer: {
     code({ text, lang }: any): any {
       // Return a promise for async rendering
       return (async () => {
