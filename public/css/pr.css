@@ -595,3 +595,32 @@ a.file-deep-link:hover { text-decoration: underline; }
   padding-left: 2em;
   margin: 0.5em 0;
 }
+
+/* Loading overlay – shown during full-page reloads */
+.loading-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.7);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  cursor: wait;
+}
+
+html.argus-loading .loading-overlay,
+.loading-overlay.active {
+  display: flex;
+}
+
+.loading-overlay-content {
+  background: white;
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  font-size: 0.95rem;
+  color: #333;
+}

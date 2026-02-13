@@ -14,6 +14,20 @@
   let pollingInterval = null;
   let lastKnownHeadSha = config.headSha;
 
+  function showLoadingOverlay() {
+    sessionStorage.setItem('argus-loading', '1');
+    document.documentElement.classList.add('argus-loading');
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.add('active');
+  }
+
+  function hideLoadingOverlay() {
+    sessionStorage.removeItem('argus-loading');
+    document.documentElement.classList.remove('argus-loading');
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+
   // DOM Elements
   const updatesBanner = document.getElementById('updates-banner');
   const reloadLink = document.getElementById('reload-link');
@@ -34,6 +48,7 @@
     const hasWParam = currentUrl.searchParams.get('w') === '1';
     if (hideWsPref === '1' && !hasWParam) {
       currentUrl.searchParams.set('w', '1');
+      showLoadingOverlay();
       window.location.replace(currentUrl.toString());
       return;
     }
@@ -54,6 +69,7 @@
     setupNextUnreviewedShortcut();
     setupFullFileToggle();
     setupRenderedToggle();
+    setupLoadingOverlayForNavigations();
 
     // Auto-switch to Files tab for historical/cross-revision/explicit-current views
     // (only if no tab is explicitly set in the URL)
@@ -86,6 +102,8 @@
       reloadLink.href = window.location.href;
     }
 
+    // Page is ready - clear loading overlay from previous navigation
+    hideLoadingOverlay();
   }
 
   // Compare dropdown
@@ -510,6 +528,7 @@
 
         if (response.ok) {
           // Reload page to apply new highlighting state
+          showLoadingOverlay();
           window.location.reload();
         }
       } catch (err) {
@@ -531,6 +550,7 @@
       } else {
         url.searchParams.delete('w');
       }
+      showLoadingOverlay();
       window.location.href = url.toString();
     });
   }
@@ -906,6 +926,26 @@
           originalDiffContents.delete(path);
         }
       }
+    });
+  }
+
+  // Show loading overlay for link clicks and form submissions that navigate away
+  function setupLoadingOverlayForNavigations() {
+    // Intercept link clicks that cause full-page navigation
+    document.addEventListener('click', (e) => {
+      if (e.defaultPrevented) return;
+      const link = e.target.closest('a[href]');
+      if (!link) return;
+      // Skip links that open in new tabs, use javascript:, or are fragment-only
+      if (link.target === '_blank') return;
+      const href = link.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+      showLoadingOverlay();
+    });
+
+    // Intercept form submissions that cause full-page navigation
+    document.addEventListener('submit', () => {
+      showLoadingOverlay();
     });
   }
 
