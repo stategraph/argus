@@ -677,12 +677,11 @@
   function setupSyntaxToggle() {
     if (!diffContainer) return;
 
-    diffContainer.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.syntax-toggle');
-      if (!btn) return;
+    diffContainer.addEventListener('change', async (e) => {
+      const checkbox = e.target.closest('.syntax-toggle');
+      if (!checkbox) return;
 
-      const currentState = btn.textContent.trim().includes('ON');
-      const newState = !currentState;
+      const newState = checkbox.checked;
 
       try {
         const response = await fetch(
@@ -701,6 +700,7 @@
         }
       } catch (err) {
         console.error('Failed to toggle syntax highlighting:', err);
+        checkbox.checked = !checkbox.checked; // Revert on error
       }
     });
   }

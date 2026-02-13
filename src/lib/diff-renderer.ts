@@ -222,11 +222,17 @@ export async function renderFile(
   // Detect language for syntax highlighting
   const language = detectLanguage(path);
 
-  // Syntax toggle button
+  // Syntax toggle checkbox
   const syntaxToggle = language ? `
-    <button class="syntax-toggle" data-file-id="${fileId}" title="Toggle syntax highlighting">
-      ${enableHighlighting ? 'Syntax: ON' : 'Syntax: OFF'}
-    </button>
+    <span class="syntax-checkbox">
+      <input type="checkbox"
+             id="syntax-${fileId}"
+             class="syntax-toggle"
+             data-file-id="${fileId}"
+             title="Toggle syntax highlighting"
+             ${enableHighlighting ? 'checked' : ''}>
+      <label for="syntax-${fileId}">Syntax</label>
+    </span>
   ` : '';
 
   // Full file toggle checkbox
