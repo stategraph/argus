@@ -215,14 +215,14 @@ export async function fetchPRFiles(
   repo: string,
   prNumber: number
 ): Promise<PRFile[]> {
-  const response = await octokit.pulls.listFiles({
+  const files = await octokit.paginate(octokit.pulls.listFiles, {
     owner,
     repo,
     pull_number: prNumber,
-    per_page: 300,
+    per_page: 100,
   });
 
-  return response.data as PRFile[];
+  return files as PRFile[];
 }
 
 // Fetch PR diff (raw)

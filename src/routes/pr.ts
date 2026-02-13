@@ -21,14 +21,14 @@ import {
   mergePR,
   fetchFileContent,
 } from '../lib/github.js';
-import { query } from '../db/index.js';
+import { query, getDb } from '../db/index.js';
 import { parsePatch, DiffFile, parseHunkString } from '../lib/diff-parser.js';
 import { renderFile, renderFileSidebarItem, renderInlineCommentForm, renderSimpleHunk, renderDirectoryTree, fileSlug } from '../lib/diff-renderer.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { renderAsciidoc } from '../lib/asciidoc.js';
 import { config } from '../config.js';
 import { computeMergeBase, computeRangeDiff, computeCrossDiff, computeCrossRevisionDiff, getFullFileDiff } from '../lib/git.js';
-import { getReviewedFiles, toggleFileReview } from '../lib/file-reviews.js';
+import { getReviewedFiles, toggleFileReview, markFileReviewed, markFileUnreviewed } from '../lib/file-reviews.js';
 import { buildFileTree } from '../lib/file-tree-builder.js';
 
 interface PRParams {
@@ -117,6 +117,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           ? getReviewedFiles(request.user.githubUserId, owner, repo, prNumber, fileShaMap)
           : [];
         const reviewedFilesSet = new Set(reviewedFiles);
+
 
         // Get syntax highlighting preference (default: true)
         let enableHighlighting = true;
@@ -678,6 +679,63 @@ export async function prRoutes(fastify: FastifyInstance) {
       } catch (err: any) {
         console.error('Error toggling file review:', err);
         return reply.status(500).send({ error: 'Failed to toggle review' });
+      }
+    }
+  );
+
+  // Bulk file review (mark/unmark multiple files)
+  fastify.post(
+    '/pr/:owner/:repo/:number/file-review-bulk',
+    async (
+      request: FastifyRequest<{
+        Params: PRParams;
+        Body: { files: { file_path: string; file_sha: string }[]; head_sha: string; reviewed: boolean };
+      }>,
+      reply: FastifyReply
+    ) => {
+      if (!requireAuth(request, reply)) return;
+
+      const { owner, repo, number } = request.params;
+      const { files, head_sha, reviewed } = request.body;
+      const prNumber = parseInt(number, 10);
+
+      if (!Array.isArray(files) || !head_sha || typeof reviewed !== 'boolean') {
+        return reply.status(400).send({ error: 'Missing required fields' });
+      }
+
+      try {
+        const db = getDb();
+        const userId = request.user!.githubUserId;
+
+        const bulkOp = db.transaction(() => {
+          for (const file of files) {
+            if (reviewed) {
+              markFileReviewed(
+                userId,
+                owner,
+                repo,
+                prNumber,
+                file.file_path,
+                head_sha,
+                file.file_sha || ''
+              );
+            } else {
+              markFileUnreviewed(
+                userId,
+                owner,
+                repo,
+                prNumber,
+                file.file_path
+              );
+            }
+          }
+        });
+        bulkOp();
+
+        return reply.send({ reviewed });
+      } catch (err: any) {
+        console.error('Error bulk toggling file reviews:', err);
+        return reply.status(500).send({ error: 'Failed to bulk toggle reviews' });
       }
     }
   );

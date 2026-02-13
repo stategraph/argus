@@ -594,8 +594,14 @@ export function renderDirectoryTree(
           <span class="deletions">-${stats.deletions}</span>
         </span>
         <span class="dir-controls">
-          <button class="btn-tiny dir-expand-all" title="Expand all diffs in this directory">Expand all</button>
-          <button class="btn-tiny dir-collapse-all" title="Collapse all diffs in this directory">Collapse all</button>
+          <label class="dir-checkbox">
+            <input type="checkbox" class="dir-collapse-toggle" data-path="${escapeHtml(path)}">
+            Collapsed
+          </label>
+          <label class="dir-checkbox">
+            <input type="checkbox" class="dir-review-all-toggle" data-path="${escapeHtml(path)}">
+            Review all
+          </label>
         </span>
       </summary>
       <div class="directory-children">
