@@ -14,6 +14,20 @@
   let pollingInterval = null;
   let lastKnownHeadSha = config.headSha;
 
+  function showLoadingOverlay() {
+    sessionStorage.setItem('argus-loading', '1');
+    document.documentElement.classList.add('argus-loading');
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.add('active');
+  }
+
+  function hideLoadingOverlay() {
+    sessionStorage.removeItem('argus-loading');
+    document.documentElement.classList.remove('argus-loading');
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+
   // DOM Elements
   const updatesBanner = document.getElementById('updates-banner');
   const reloadLink = document.getElementById('reload-link');
@@ -34,6 +48,7 @@
     const hasWParam = currentUrl.searchParams.get('w') === '1';
     if (hideWsPref === '1' && !hasWParam) {
       currentUrl.searchParams.set('w', '1');
+      showLoadingOverlay();
       window.location.replace(currentUrl.toString());
       return;
     }
@@ -46,7 +61,9 @@
     setupReplyButtons();
     setupFileReviewToggles();
     setupDiffControls();
-    setupPerDirectoryControls();
+    setupDirectoryControlClickGuard();
+    setupDirectoryCollapseToggles();
+    setupDirectoryReviewAllToggles();
     setupSyntaxToggle();
     setupWhitespaceToggle();
     setupFileDeepLinks();
@@ -54,6 +71,19 @@
     setupNextUnreviewedShortcut();
     setupFullFileToggle();
     setupRenderedToggle();
+    setupLoadingOverlayForNavigations();
+
+    // Set initial state of all "Review all" directory checkboxes
+    document.querySelectorAll('.dir-review-all-toggle').forEach(checkbox => {
+      const dir = checkbox.closest('.diff-directory');
+      if (!dir) return;
+      const children = dir.querySelector('.directory-children');
+      if (!children) return;
+      const allFiles = children.querySelectorAll('.file-reviewed-toggle');
+      const allChecked = allFiles.length > 0 &&
+        children.querySelectorAll('.file-reviewed-toggle:not(:checked)').length === 0;
+      checkbox.checked = allChecked;
+    });
 
     // Auto-switch to Files tab for historical/cross-revision/explicit-current views
     // (only if no tab is explicitly set in the URL)
@@ -86,6 +116,8 @@
       reloadLink.href = window.location.href;
     }
 
+    // Page is ready - clear loading overlay from previous navigation
+    hideLoadingOverlay();
   }
 
   // Compare dropdown
@@ -383,6 +415,11 @@
 
         // Update review progress count
         updateReviewProgress();
+
+        // Sync parent directory "Review all" checkboxes
+        if (fileEl) {
+          syncDirectoryReviewAllCheckboxes(fileEl);
+        }
       } catch (err) {
         console.error('Failed to toggle review:', err);
         checkbox.checked = !checkbox.checked; // Revert
@@ -446,57 +483,205 @@
     }
   }
 
-  // Per-directory controls
-  function setupPerDirectoryControls() {
+  // Prevent clicks on directory control checkboxes from toggling the parent <details>.
+  // Checkboxes and labels inside a <summary> cause the <details> to toggle on click.
+  // We stop propagation at the .dir-controls boundary so the click never reaches the
+  // <summary>, while letting the native checkbox/label behavior work normally.
+  function setupDirectoryControlClickGuard() {
     if (!diffContainer) return;
 
-    diffContainer.addEventListener('click', (e) => {
-      const target = e.target;
-
-      // Expand all in directory
-      if (target.classList.contains('dir-expand-all')) {
-        e.preventDefault();
+    // Use querySelectorAll to attach directly to each .dir-controls element.
+    // stopPropagation here prevents the click from reaching the parent <summary>,
+    // without interfering with native checkbox toggle or label forwarding.
+    diffContainer.querySelectorAll('.dir-controls').forEach(controls => {
+      controls.addEventListener('click', (e) => {
         e.stopPropagation();
+      });
+    });
+  }
 
-        const directory = target.closest('.diff-directory');
-        if (directory) {
-          const children = directory.querySelector('.directory-children');
-          if (children) {
-            children.querySelectorAll('.diff-directory, .diff-file').forEach(el => {
-              el.open = true;
-            });
-          }
+  // Directory collapse toggle checkbox
+  function setupDirectoryCollapseToggles() {
+    if (!diffContainer) return;
+
+    diffContainer.addEventListener('change', (e) => {
+      const checkbox = e.target.closest('.dir-collapse-toggle');
+      if (!checkbox) return;
+
+      const directory = checkbox.closest('.diff-directory');
+      if (!directory) return;
+
+      const children = directory.querySelector('.directory-children');
+      if (!children) return;
+
+      const collapse = checkbox.checked;
+      children.querySelectorAll('.diff-directory, .diff-file').forEach(el => {
+        el.open = !collapse;
+      });
+    });
+  }
+
+  // Directory "Review all" toggle checkbox
+  function setupDirectoryReviewAllToggles() {
+    if (!diffContainer) return;
+
+    diffContainer.addEventListener('change', async (e) => {
+      const checkbox = e.target.closest('.dir-review-all-toggle');
+      if (!checkbox) return;
+
+      const directory = checkbox.closest('.diff-directory');
+      if (!directory) return;
+
+      const children = directory.querySelector('.directory-children');
+      if (!children) return;
+
+      const reviewed = checkbox.checked;
+
+      if (reviewed) {
+        // Find all unreviewed files in this directory (including nested subdirectories)
+        const unreviewed = children.querySelectorAll('.file-reviewed-toggle:not(:checked)');
+        if (unreviewed.length === 0) {
+          // No unreviewed files, but still sync descendant checkboxes
+          children.querySelectorAll('.dir-review-all-toggle').forEach(cb => { cb.checked = true; });
+          return;
         }
-      }
 
-      // Collapse all in directory
-      if (target.classList.contains('dir-collapse-all')) {
-        e.preventDefault();
-        e.stopPropagation();
+        const files = Array.from(unreviewed).map(cb => ({
+          file_path: cb.dataset.path,
+          file_sha: cb.dataset.fileSha || ''
+        }));
 
-        const directory = target.closest('.diff-directory');
-        if (directory) {
-          const children = directory.querySelector('.directory-children');
-          if (children) {
-            children.querySelectorAll('.diff-directory, .diff-file').forEach(el => {
-              el.open = false;
-            });
-          }
+        showLoadingOverlay();
+        try {
+          const response = await fetch(
+            `/pr/${config.owner}/${config.repo}/${config.prNumber}/file-review-bulk`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ files, head_sha: config.headSha, reviewed: true })
+            }
+          );
+
+          if (!response.ok) throw new Error('Server returned ' + response.status);
+
+          unreviewed.forEach(cb => {
+            cb.checked = true;
+            const fileEl = cb.closest('.diff-file');
+            if (fileEl) {
+              fileEl.classList.add('file-reviewed');
+              fileEl.open = false;
+            }
+          });
+
+          // Sync all descendant "Review all" checkboxes to checked
+          children.querySelectorAll('.dir-review-all-toggle').forEach(cb => { cb.checked = true; });
+          // Sync ancestor "Review all" checkboxes
+          syncAncestorReviewAllCheckboxes(directory);
+
+          updateReviewProgress();
+        } catch (err) {
+          console.error('Failed to bulk review:', err);
+          checkbox.checked = false; // Revert
+        } finally {
+          hideLoadingOverlay();
+        }
+      } else {
+        // Find all reviewed files in this directory (including nested subdirectories)
+        const reviewedCbs = children.querySelectorAll('.file-reviewed-toggle:checked');
+        if (reviewedCbs.length === 0) {
+          // No reviewed files, but still sync descendant checkboxes
+          children.querySelectorAll('.dir-review-all-toggle').forEach(cb => { cb.checked = false; });
+          return;
+        }
+
+        const files = Array.from(reviewedCbs).map(cb => ({
+          file_path: cb.dataset.path,
+          file_sha: cb.dataset.fileSha || ''
+        }));
+
+        showLoadingOverlay();
+        try {
+          const response = await fetch(
+            `/pr/${config.owner}/${config.repo}/${config.prNumber}/file-review-bulk`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ files, head_sha: config.headSha, reviewed: false })
+            }
+          );
+
+          if (!response.ok) throw new Error('Server returned ' + response.status);
+
+          reviewedCbs.forEach(cb => {
+            cb.checked = false;
+            const fileEl = cb.closest('.diff-file');
+            if (fileEl) {
+              fileEl.classList.remove('file-reviewed');
+              fileEl.open = true;
+            }
+          });
+
+          // Sync all descendant "Review all" checkboxes to unchecked
+          children.querySelectorAll('.dir-review-all-toggle').forEach(cb => { cb.checked = false; });
+          // Sync ancestor "Review all" checkboxes
+          syncAncestorReviewAllCheckboxes(directory);
+
+          updateReviewProgress();
+        } catch (err) {
+          console.error('Failed to bulk unreview:', err);
+          checkbox.checked = true; // Revert
+        } finally {
+          hideLoadingOverlay();
         }
       }
     });
+  }
+
+  // Sync "Review all" checkboxes for all ancestor directories based on their descendant file state
+  function syncAncestorReviewAllCheckboxes(startDir) {
+    let dir = startDir.parentElement ? startDir.parentElement.closest('.diff-directory') : null;
+    while (dir) {
+      const reviewAllCheckbox = dir.querySelector(':scope > .directory-header .dir-review-all-toggle');
+      if (reviewAllCheckbox) {
+        const dirChildren = dir.querySelector('.directory-children');
+        if (dirChildren) {
+          const allFiles = dirChildren.querySelectorAll('.file-reviewed-toggle');
+          const allChecked = allFiles.length > 0 &&
+            dirChildren.querySelectorAll('.file-reviewed-toggle:not(:checked)').length === 0;
+          reviewAllCheckbox.checked = allChecked;
+        }
+      }
+      dir = dir.parentElement ? dir.parentElement.closest('.diff-directory') : null;
+    }
+  }
+
+  // Sync "Review all" checkboxes when individual files change (walks up the tree)
+  function syncDirectoryReviewAllCheckboxes(fileEl) {
+    let dir = fileEl.closest('.diff-directory');
+    while (dir) {
+      const reviewAllCheckbox = dir.querySelector(':scope > .directory-header .dir-review-all-toggle');
+      if (reviewAllCheckbox) {
+        const dirChildren = dir.querySelector('.directory-children');
+        if (dirChildren) {
+          const allFiles = dirChildren.querySelectorAll('.file-reviewed-toggle');
+          const allChecked = allFiles.length > 0 &&
+            dirChildren.querySelectorAll('.file-reviewed-toggle:not(:checked)').length === 0;
+          reviewAllCheckbox.checked = allChecked;
+        }
+      }
+      dir = dir.parentElement ? dir.parentElement.closest('.diff-directory') : null;
+    }
   }
 
   // Syntax highlighting toggle
   function setupSyntaxToggle() {
     if (!diffContainer) return;
 
-    diffContainer.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.syntax-toggle');
-      if (!btn) return;
+    diffContainer.addEventListener('change', async (e) => {
+      const checkbox = e.target.closest('.syntax-toggle');
+      if (!checkbox) return;
 
-      const currentState = btn.textContent.trim().includes('ON');
-      const newState = !currentState;
+      const newState = checkbox.checked;
 
       try {
         const response = await fetch(
@@ -510,10 +695,12 @@
 
         if (response.ok) {
           // Reload page to apply new highlighting state
+          showLoadingOverlay();
           window.location.reload();
         }
       } catch (err) {
         console.error('Failed to toggle syntax highlighting:', err);
+        checkbox.checked = !checkbox.checked; // Revert on error
       }
     });
   }
@@ -531,6 +718,7 @@
       } else {
         url.searchParams.delete('w');
       }
+      showLoadingOverlay();
       window.location.href = url.toString();
     });
   }
@@ -846,6 +1034,13 @@
           diffContent.innerHTML = originalDiffTables.get(path);
           originalDiffTables.delete(path);
         }
+        // After collapsing, ensure the file header is still visible.
+        // With a large full-file view, the viewport may end up far
+        // below the file after content shrinks.
+        const headerRect = fileEl.getBoundingClientRect();
+        if (headerRect.top < 0 || headerRect.top > window.innerHeight) {
+          fileEl.scrollIntoView({ block: 'start' });
+        }
       }
     });
   }
@@ -899,6 +1094,26 @@
           originalDiffContents.delete(path);
         }
       }
+    });
+  }
+
+  // Show loading overlay for link clicks and form submissions that navigate away
+  function setupLoadingOverlayForNavigations() {
+    // Intercept link clicks that cause full-page navigation
+    document.addEventListener('click', (e) => {
+      if (e.defaultPrevented) return;
+      const link = e.target.closest('a[href]');
+      if (!link) return;
+      // Skip links that open in new tabs, use javascript:, or are fragment-only
+      if (link.target === '_blank') return;
+      const href = link.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+      showLoadingOverlay();
+    });
+
+    // Intercept form submissions that cause full-page navigation
+    document.addEventListener('submit', () => {
+      showLoadingOverlay();
     });
   }
 

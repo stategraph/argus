@@ -22,8 +22,57 @@ export function getReviewedFiles(
 }
 
 /**
- * Toggle file review status (mark as reviewed or un-review)
- * Returns true if file is now reviewed, false if un-reviewed
+ * Idempotently mark a file as reviewed. No-op if already reviewed with the same SHA.
+ */
+export function markFileReviewed(
+  userId: number,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  filePath: string,
+  headSha: string,
+  fileSha: string
+): void {
+  const { rows } = query<{ id: number }>(
+    `SELECT id FROM file_reviews
+     WHERE user_id = ? AND owner = ? AND repo = ? AND pr_number = ? AND file_path = ? AND file_sha = ?`,
+    [userId, owner, repo, prNumber, filePath, fileSha]
+  );
+
+  if (rows.length > 0) return; // already reviewed with this SHA
+
+  query(
+    `DELETE FROM file_reviews
+     WHERE user_id = ? AND owner = ? AND repo = ? AND pr_number = ? AND file_path = ?`,
+    [userId, owner, repo, prNumber, filePath]
+  );
+  query(
+    `INSERT INTO file_reviews (user_id, owner, repo, pr_number, file_path, head_sha, file_sha)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [userId, owner, repo, prNumber, filePath, headSha, fileSha]
+  );
+}
+
+/**
+ * Idempotently mark a file as unreviewed. No-op if not currently reviewed.
+ */
+export function markFileUnreviewed(
+  userId: number,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  filePath: string
+): void {
+  query(
+    `DELETE FROM file_reviews
+     WHERE user_id = ? AND owner = ? AND repo = ? AND pr_number = ? AND file_path = ?`,
+    [userId, owner, repo, prNumber, filePath]
+  );
+}
+
+/**
+ * Toggle file review status (mark as reviewed or un-review).
+ * Returns true if file is now reviewed, false if un-reviewed.
  */
 export function toggleFileReview(
   userId: number,

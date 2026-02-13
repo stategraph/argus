@@ -676,8 +676,18 @@
       white-space: nowrap;
     }
   </style>
+  <script>
+    if (sessionStorage.getItem('argus-loading')) {
+      document.documentElement.classList.add('argus-loading');
+    }
+  </script>
 </head>
 <body>
+  <!-- Loading overlay for page reloads -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-overlay-content">Loading…</div>
+  </div>
+
   <header class="site-header">
     <nav class="nav-container">
       <a href="/" class="nav-logo">Argus</a>
@@ -1344,24 +1354,38 @@
       hideWhitespace: <%= hideWhitespace ? 'true' : 'false' %>
     };
 
-    // Tab switching
+    // Tab switching (with loading overlay for expensive layout changes)
     document.querySelectorAll('.pr-tab').forEach(tab => {
       tab.addEventListener('click', (e) => {
-        const targetTab = e.currentTarget.dataset.tab;
+        const clickedTab = e.currentTarget;
+        const targetTab = clickedTab.dataset.tab;
         if (!targetTab) return;
 
-        // Update active tab
-        document.querySelectorAll('.pr-tab').forEach(t => t.classList.remove('active'));
-        e.currentTarget.classList.add('active');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) loadingOverlay.classList.add('active');
 
-        // Update active content
-        document.querySelectorAll('.pr-tab-content').forEach(c => c.classList.remove('active'));
-        document.querySelector(`[data-tab-content="${targetTab}"]`).classList.add('active');
+        // Double-rAF ensures the overlay paints before the expensive DOM switch
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            // Update active tab
+            document.querySelectorAll('.pr-tab').forEach(t => t.classList.remove('active'));
+            clickedTab.classList.add('active');
 
-        // Update URL with tab parameter
-        const url = new URL(window.location);
-        url.searchParams.set('tab', targetTab);
-        history.replaceState(null, '', url);
+            // Update active content
+            document.querySelectorAll('.pr-tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`[data-tab-content="${targetTab}"]`).classList.add('active');
+
+            // Update URL with tab parameter
+            const url = new URL(window.location);
+            url.searchParams.set('tab', targetTab);
+            history.replaceState(null, '', url);
+
+            // Hide overlay after browser lays out the new content
+            requestAnimationFrame(() => {
+              if (loadingOverlay) loadingOverlay.classList.remove('active');
+            });
+          });
+        });
       });
     });
 
