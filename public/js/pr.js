@@ -51,6 +51,7 @@
     setupWhitespaceToggle();
     setupFileDeepLinks();
     setupGoToFileModal();
+    setupNextUnreviewedShortcut();
     setupFullFileToggle();
     setupRenderedToggle();
 
@@ -729,6 +730,62 @@
         e.preventDefault();
         openModal();
       }
+    });
+  }
+
+  // Next unreviewed file shortcut
+  function setupNextUnreviewedShortcut() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'n') return;
+
+      // Don't trigger in form elements
+      const tag = document.activeElement?.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      // Don't trigger if go-to-file modal is open
+      const modal = document.getElementById('goto-file-modal');
+      if (modal && modal.classList.contains('active')) return;
+
+      // Don't trigger if review form is open
+      const reviewForm = document.getElementById('review-form');
+      if (reviewForm && reviewForm.classList.contains('active')) return;
+
+      e.preventDefault();
+
+      const unreviewed = document.querySelectorAll('.diff-file:not(.file-reviewed)');
+      if (unreviewed.length === 0) return;
+
+      // Find the first unreviewed file whose top is below the current scroll position
+      const threshold = 10;
+      let target = null;
+      for (const file of unreviewed) {
+        if (file.getBoundingClientRect().top > threshold) {
+          target = file;
+          break;
+        }
+      }
+
+      // Wrap around to the first unreviewed file if none found below
+      if (!target) {
+        target = unreviewed[0];
+      }
+
+      // Switch to Files tab if not already active
+      const filesTab = document.querySelector('.pr-tab[data-tab="files"]');
+      if (filesTab && !filesTab.classList.contains('active')) {
+        filesTab.click();
+      }
+
+      // Expand parent directories
+      let parent = target.parentElement?.closest('details.diff-directory');
+      while (parent) {
+        parent.open = true;
+        parent = parent.parentElement?.closest('details.diff-directory');
+      }
+
+      // Expand the file and scroll to it
+      target.open = true;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 
