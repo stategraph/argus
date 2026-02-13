@@ -846,6 +846,13 @@
           diffContent.innerHTML = originalDiffTables.get(path);
           originalDiffTables.delete(path);
         }
+        // After collapsing, ensure the file header is still visible.
+        // With a large full-file view, the viewport may end up far
+        // below the file after content shrinks.
+        const headerRect = fileEl.getBoundingClientRect();
+        if (headerRect.top < 0 || headerRect.top > window.innerHeight) {
+          fileEl.scrollIntoView({ block: 'start' });
+        }
       }
     });
   }
