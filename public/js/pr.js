@@ -113,7 +113,11 @@
 
     // Reload link
     if (reloadLink) {
-      reloadLink.href = window.location.href;
+      reloadLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showLoadingOverlay();
+        window.location.reload();
+      });
     }
 
     // Page is ready - clear loading overlay from previous navigation
