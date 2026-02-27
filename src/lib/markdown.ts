@@ -3,27 +3,39 @@ import { nameToEmoji } from 'gemoji';
 import { getHighlighterInstance } from './syntax-highlighter.js';
 
 // Configure marked for safe rendering with GitHub-flavored markdown
-// NOTE: All custom renderers must be in the same async marked.use() call,
-// because async mode makes parseInline() return Promises.
+// NOTE: Async work (syntax highlighting) is done in walkTokens, which runs
+// before the synchronous parse step. Renderers must be synchronous.
 marked.use({
   gfm: true,
   breaks: true,
 });
 
-// Async extension for syntax highlighting code blocks and custom renderers
+// Async extension: use walkTokens for async work, keep renderers synchronous
 marked.use({
   async: true,
+  async walkTokens(token: any) {
+    if (token.type === 'code' && token.lang) {
+      try {
+        const highlighter = await getHighlighterInstance();
+        const loadedLanguages = highlighter.getLoadedLanguages();
+        if (loadedLanguages.includes(token.lang as any)) {
+          token._highlighted = highlighter.codeToHtml(token.text, {
+            lang: token.lang,
+            theme: 'github-light',
+          });
+        }
+      } catch (err) {
+        console.error('Markdown code highlighting failed:', err);
+      }
+    }
+  },
   renderer: {
-    // Make links open in new tab (async to await parseInline which returns Promise in async mode)
-    link({ href, title, tokens }: any): any {
-      return (async () => {
-        const text = await this.parser.parseInline(tokens);
-        const titleAttr = title ? ` title="${title}"` : '';
-        return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
-      })();
+    link({ href, title, tokens }: any) {
+      const text = this.parser.parseInline(tokens);
+      const titleAttr = title ? ` title="${title}"` : '';
+      return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
     },
-    // Handle checkboxes in task lists
-    listitem({ text, task, checked }) {
+    listitem({ text, task, checked }: any) {
       if (task) {
         const checkbox = checked
           ? '<input type="checkbox" checked>'
@@ -32,36 +44,12 @@ marked.use({
       }
       return `<li>${text}</li>`;
     },
-    code({ text, lang }: any): any {
-      // Return a promise for async rendering
-      return (async () => {
-        if (!lang) {
-          // No language specified, return plain code block
-          return `<pre><code>${escapeHtml(text)}</code></pre>`;
-        }
-
-        try {
-          const highlighter = await getHighlighterInstance();
-          const loadedLanguages = highlighter.getLoadedLanguages();
-
-          // Check if language is supported
-          if (!loadedLanguages.includes(lang as any)) {
-            // Language not supported, return plain code block
-            return `<pre><code class="language-${escapeHtml(lang)}">${escapeHtml(text)}</code></pre>`;
-          }
-
-          // Use Shiki to highlight the code
-          const html = highlighter.codeToHtml(text, {
-            lang,
-            theme: 'github-light',
-          });
-
-          return html;
-        } catch (err) {
-          console.error('Markdown code highlighting failed:', err);
-          return `<pre><code class="language-${escapeHtml(lang)}">${escapeHtml(text)}</code></pre>`;
-        }
-      })();
+    code({ text, lang, _highlighted }: any) {
+      if (_highlighted) return _highlighted;
+      if (lang) {
+        return `<pre><code class="language-${escapeHtml(lang)}">${escapeHtml(text)}</code></pre>`;
+      }
+      return `<pre><code>${escapeHtml(text)}</code></pre>`;
     },
   },
 });
