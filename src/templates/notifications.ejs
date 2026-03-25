@@ -126,26 +126,24 @@
     <% } %>
 
     <% if (showDismissed && dismissed.length > 0) { %>
-      <details>
-        <summary class="section-header dismissed">Dismissed (<%= dismissed.length %>)</summary>
-        <% dismissed.forEach(function(item) { %>
-          <div class="notification-item">
-            <span class="notification-repo"><a href="/repos/<%= item.owner %>/<%= item.repo %>/pulls"><%= item.fullName %></a></span>
-            <span class="notification-number">#<%= item.number %></span>
-            <span class="notification-link">
-              <a href="/pr/<%= item.owner %>/<%= item.repo %>/<%= item.number %>" class="notification-title"><%= item.title %></a>
-              <% if (item.draft) { %><span class="notification-draft">(draft)</span><% } %>
-            </span>
-            <span class="notification-meta"><%= item.user.login %></span>
-            <span class="notification-actions">
-              <form method="POST" action="/notifications/undismiss">
-                <input type="hidden" name="prKey" value="<%= item.fullName %>#<%= item.number %>">
-                <button type="submit" class="btn" title="Restore">&#x21A9;</button>
-              </form>
-            </span>
-          </div>
-        <% }); %>
-      </details>
+      <div class="section-header dismissed">Dismissed (<%= dismissed.length %>)</div>
+      <% dismissed.forEach(function(item) { %>
+        <div class="notification-item">
+          <span class="notification-repo"><a href="/repos/<%= item.owner %>/<%= item.repo %>/pulls"><%= item.fullName %></a></span>
+          <span class="notification-number">#<%= item.number %></span>
+          <span class="notification-link">
+            <a href="/pr/<%= item.owner %>/<%= item.repo %>/<%= item.number %>" class="notification-title"><%= item.title %></a>
+            <% if (item.draft) { %><span class="notification-draft">(draft)</span><% } %>
+          </span>
+          <span class="notification-meta"><%= item.user.login %></span>
+          <span class="notification-actions">
+            <form method="POST" action="/notifications/undismiss">
+              <input type="hidden" name="prKey" value="<%= item.fullName %>#<%= item.number %>">
+              <button type="submit" class="btn" title="Restore">&#x21A9;</button>
+            </form>
+          </span>
+        </div>
+      <% }); %>
     <% } %>
 
     <% if (totalPages > 1) { %>
