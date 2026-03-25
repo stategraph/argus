@@ -622,6 +622,84 @@ export async function fetchPRTimeline(
   }
 }
 
+// Fetch PRs where the user's review is requested
+export interface ReviewRequestItem {
+  number: number;
+  title: string;
+  owner: string;
+  repo: string;
+  fullName: string;
+  user: { login: string; avatar_url: string };
+  created_at: string;
+  updated_at: string;
+  draft: boolean;
+}
+
+export async function fetchReviewRequests(
+  octokit: Octokit,
+  username: string
+): Promise<ReviewRequestItem[]> {
+  const cacheKey = `review-requests:${username}`;
+
+  const { rows: cached } = query<{ data: string; etag: string }>(
+    `SELECT data, etag FROM api_cache
+     WHERE cache_key = ? AND expires_at > datetime('now')`,
+    [cacheKey]
+  );
+
+  const headers: Record<string, string> = {};
+  if (cached.length > 0 && cached[0].etag) {
+    headers['If-None-Match'] = cached[0].etag;
+  }
+
+  try {
+    const response = await octokit.request('GET /search/issues', {
+      q: `type:pr state:open review-requested:${username}`,
+      per_page: 100,
+      sort: 'updated',
+      order: 'desc',
+      headers,
+    });
+
+    const etag = response.headers.etag || null;
+    const items: ReviewRequestItem[] = response.data.items.map((item: any) => {
+      const repoUrl: string = item.repository_url || '';
+      const parts = repoUrl.split('/');
+      const repo = parts[parts.length - 1];
+      const owner = parts[parts.length - 2];
+      return {
+        number: item.number,
+        title: item.title,
+        owner,
+        repo,
+        fullName: `${owner}/${repo}`,
+        user: { login: item.user.login, avatar_url: item.user.avatar_url },
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        draft: !!item.draft,
+      };
+    });
+
+    query(
+      `INSERT INTO api_cache (cache_key, etag, data, fetched_at, expires_at)
+       VALUES (?, ?, ?, datetime('now'), datetime('now', '+30 seconds'))
+       ON CONFLICT (cache_key) DO UPDATE SET
+         etag = excluded.etag,
+         data = excluded.data,
+         fetched_at = datetime('now'),
+         expires_at = datetime('now', '+30 seconds')`,
+      [cacheKey, etag, JSON.stringify(items)]
+    );
+
+    return items;
+  } catch (err: any) {
+    if (err.status === 304 && cached.length > 0) {
+      return JSON.parse(cached[0].data) as ReviewRequestItem[];
+    }
+    throw err;
+  }
+}
+
 // Merge a pull request
 // Fetch raw file content at a specific ref
 export async function fetchFileContent(

@@ -18,6 +18,7 @@ import { homeRoutes } from './routes/home.js';
 import { prRoutes } from './routes/pr.js';
 import { repoRoutes } from './routes/repos.js';
 import { dashboardRoutes } from './routes/dashboard.js';
+import { notificationRoutes } from './routes/notifications.js';
 import { authMiddleware, initTokenAuth } from './middleware/auth.js';
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -74,6 +75,7 @@ async function start() {
     await fastify.register(repoRoutes);
     await fastify.register(prRoutes);
     await fastify.register(dashboardRoutes);
+    await fastify.register(notificationRoutes);
 
     // Clean up old file reviews on startup and daily
     const cleanupOldFileReviews = () => {
