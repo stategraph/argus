@@ -74,11 +74,15 @@
     </div>
 
     <div class="notifications-toolbar">
-      <% if (filterMode === 'unread') { %>
-        <a href="/notifications<%= repoFilter ? '?repo=' + encodeURIComponent(repoFilter) : '' %>" class="btn filter-active">Show only unread</a>
-      <% } else { %>
-        <a href="/notifications?filter=unread<%= repoFilter ? '&repo=' + encodeURIComponent(repoFilter) : '' %>" class="btn">Show only unread</a>
-      <% } %>
+      <label style="display:inline-flex; align-items:center; gap:0.375rem; cursor:pointer;">
+        <input type="checkbox"
+          <%= filterMode === 'unread' ? 'checked' : '' %>
+          onchange="location.href = this.checked
+            ? '/notifications?filter=unread<%= repoFilter ? '&repo=' + encodeURIComponent(repoFilter) : '' %>'
+            : '/notifications<%= repoFilter ? '?repo=' + encodeURIComponent(repoFilter) : '' %>'"
+        />
+        Show only unread
+      </label>
 
       <% if (pendingCount > 0) { %>
         <form method="POST" action="/notifications/dismiss-all" style="display:inline;">
