@@ -278,6 +278,7 @@ a.file-deep-link:hover { text-decoration: underline; }
   cursor: pointer;
   user-select: none;
   color: #666;
+  padding: 0.25rem;
 }
 
 .file-reviewed {
