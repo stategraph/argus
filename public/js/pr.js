@@ -62,6 +62,7 @@
     setupFileReviewToggles();
     setupDiffControls();
     setupDirectoryControlClickGuard();
+    setupFileStatsClickGuard();
     setupDirectoryCollapseToggles();
     setupDirectoryReviewAllToggles();
     setupSyntaxToggle();
@@ -485,6 +486,17 @@
         });
       });
     }
+  }
+
+  // Prevent clicks on file-stats checkboxes (Reviewed, Syntax, Full File, Rendered)
+  // from toggling the parent <details>. Same pattern as setupDirectoryControlClickGuard.
+  function setupFileStatsClickGuard() {
+    if (!diffContainer) return;
+    diffContainer.querySelectorAll('.file-stats').forEach(stats => {
+      stats.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    });
   }
 
   // Prevent clicks on directory control checkboxes from toggling the parent <details>.

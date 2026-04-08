@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .notifications { max-width: 900px; margin: 0 auto; padding: 1rem; }
+    .notifications-header { margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+    .notifications-header h1 { margin: 0; }
+    .notifications-stats { color: #666; }
+
+    .notifications-toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .toolbar-right { margin-left: auto; }
+
+    .filter-active { background: #0066cc; color: #fff; border-color: #0066cc; }
+
+    .notification-item {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      gap: 0.75rem;
+      align-items: baseline;
+    }
+    .notification-item:last-child { border-bottom: none; }
+
+    .notification-repo { color: #666; font-size: 0.85rem; min-width: 12em; }
+    .notification-repo a { color: #666; text-decoration: none; }
+    .notification-repo a:hover { color: #0066cc; text-decoration: underline; }
+    .notification-number { color: #666; font-size: 0.9rem; min-width: 4em; }
+    .notification-link { flex: 1; }
+    .notification-title { color: #222; text-decoration: none; }
+    .notification-title:hover { color: #0066cc; text-decoration: underline; }
+    .notification-draft { color: #886600; font-size: 0.8rem; }
+    .notification-meta { color: #888; font-size: 0.85rem; white-space: nowrap; }
+    .notification-actions { white-space: nowrap; }
+    .notification-actions form { display: inline; }
+
+    .section-header { font-weight: 600; color: #444; margin: 1rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid #ddd; }
+    .section-header.dismissed { color: #888; }
+
+    .empty-state { color: #666; text-align: center; padding: 3rem; }
+
+    .pagination { display: flex; gap: 1rem; justify-content: center; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee; }
+    .pagination .current { font-weight: 600; }
+
+    @media (max-width: 768px) {
+      .notifications { padding: 0.75rem; }
+      .notifications-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+      .notifications-toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar-right { margin-left: 0; }
+      .notification-item { flex-wrap: wrap; gap: 0.5rem; }
+      .notification-repo { min-width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/dashboard" class="nav-logo">Argus</a>
+      <a href="/notifications" class="nav-notifications" id="nav-notifications" title="Review requests">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 16a2 2 0 001.985-1.75c.017-.137-.097-.25-.235-.25h-3.5c-.138 0-.252.113-.235.25A2 2 0 008 16zM3 5a5 5 0 0110 0v2.947c0 .05.015.098.042.139l1.703 2.555A1.519 1.519 0 0113.482 13H2.518a1.519 1.519 0 01-1.263-2.36l1.703-2.554A.255.255 0 003 7.947V5z"/></svg>
+        <span class="notification-badge hidden" id="notification-badge"></span>
+      </a>
+      <% if (user) { %><span class="nav-user"><%= user.login %></span><% } %>
+    </nav>
+  </header>
+
+  <main class="notifications">
+    <div class="notifications-header">
+      <h1>Review Requests</h1>
+      <span class="notifications-stats"><%= pendingCount %> pending of <%= totalCount %> total</span>
+    </div>
+
+    <div class="notifications-toolbar">
+      <label style="display:inline-flex; align-items:center; gap:0.375rem; cursor:pointer;">
+        <input type="checkbox"
+          <%= filterMode === 'unread' ? 'checked' : '' %>
+          onchange="location.href = this.checked
+            ? '/notifications?filter=unread<%= repoFilter ? '&repo=' + encodeURIComponent(repoFilter) : '' %>'
+            : '/notifications<%= repoFilter ? '?repo=' + encodeURIComponent(repoFilter) : '' %>'"
+        />
+        Show only unread
+      </label>
+
+      <% if (pendingCount > 0) { %>
+        <form method="POST" action="/notifications/dismiss-all" style="display:inline;">
+          <button type="submit" class="btn" onclick="return confirm('Dismiss all pending review requests?')">Dismiss all</button>
+        </form>
+      <% } %>
+
+      <span class="toolbar-right">
+        <select onchange="location.href=this.value" style="padding: 0.375rem 0.5rem;">
+          <option value="/notifications<%= filterMode === 'unread' ? '?filter=unread' : '' %>" <%= !repoFilter ? 'selected' : '' %>>All repos</option>
+          <% repos.forEach(function(r) { %>
+            <option value="/notifications?repo=<%= encodeURIComponent(r) %><%= filterMode === 'unread' ? '&filter=unread' : '' %>" <%= repoFilter === r ? 'selected' : '' %>><%= r %></option>
+          <% }); %>
+        </select>
+      </span>
+    </div>
+
+    <% if (pending.length === 0 && dismissed.length === 0) { %>
+      <p class="empty-state">No review requests found.</p>
+    <% } %>
+
+    <% if (pending.length > 0) { %>
+      <div class="section-header">Pending (<%= pendingCount %>)</div>
+      <% pending.forEach(function(item) { %>
+        <div class="notification-item">
+          <span class="notification-repo"><a href="/repos/<%= item.owner %>/<%= item.repo %>/pulls"><%= item.fullName %></a></span>
+          <span class="notification-number">#<%= item.number %></span>
+          <span class="notification-link">
+            <a href="/pr/<%= item.owner %>/<%= item.repo %>/<%= item.number %>" class="notification-title"><%= item.title %></a>
+            <% if (item.draft) { %><span class="notification-draft">(draft)</span><% } %>
+          </span>
+          <span class="notification-meta"><%= item.user.login %></span>
+          <span class="notification-actions">
+            <form method="POST" action="/notifications/dismiss">
+              <input type="hidden" name="prKey" value="<%= item.fullName %>#<%= item.number %>">
+              <button type="submit" class="btn" title="Dismiss">&#x2715;</button>
+            </form>
+          </span>
+        </div>
+      <% }); %>
+    <% } %>
+
+    <% if (showDismissed && dismissed.length > 0) { %>
+      <div class="section-header dismissed">Dismissed (<%= dismissed.length %>)</div>
+      <% dismissed.forEach(function(item) { %>
+        <div class="notification-item">
+          <span class="notification-repo"><a href="/repos/<%= item.owner %>/<%= item.repo %>/pulls"><%= item.fullName %></a></span>
+          <span class="notification-number">#<%= item.number %></span>
+          <span class="notification-link">
+            <a href="/pr/<%= item.owner %>/<%= item.repo %>/<%= item.number %>" class="notification-title"><%= item.title %></a>
+            <% if (item.draft) { %><span class="notification-draft">(draft)</span><% } %>
+          </span>
+          <span class="notification-meta"><%= item.user.login %></span>
+          <span class="notification-actions">
+            <form method="POST" action="/notifications/undismiss">
+              <input type="hidden" name="prKey" value="<%= item.fullName %>#<%= item.number %>">
+              <button type="submit" class="btn" title="Restore">&#x21A9;</button>
+            </form>
+          </span>
+        </div>
+      <% }); %>
+    <% } %>
+
+    <% if (totalPages > 1) { %>
+      <div class="pagination">
+        <% if (currentPage > 1) { %>
+          <a href="/notifications?page=<%= currentPage - 1 %><%= filterMode === 'unread' ? '&filter=unread' : '' %><%= repoFilter ? '&repo=' + encodeURIComponent(repoFilter) : '' %>">&#8592; Previous</a>
+        <% } %>
+        <span class="current">Page <%= currentPage %> of <%= totalPages %></span>
+        <% if (currentPage < totalPages) { %>
+          <a href="/notifications?page=<%= currentPage + 1 %><%= filterMode === 'unread' ? '&filter=unread' : '' %><%= repoFilter ? '&repo=' + encodeURIComponent(repoFilter) : '' %>">Next &#8594;</a>
+        <% } %>
+      </div>
+    <% } %>
+  </main>
+
+  <script src="/static/js/notifications.js"></script>
+</body>
+</html>
