@@ -93,6 +93,15 @@ HTML Response (with optional client-side JS enhancement)
 - The lookups chain off the commits promise in `pr.ts`, so they overlap with diff rendering
   rather than adding a round-trip in front of it
 
+**`src/lib/paginate.ts`** - Capped reads of a paginated GitHub list
+- `collectCapped` reads pages until a cap is reached and reports whether more remain,
+  which the Link header answers exactly (a full last page is not proof of a next one)
+- Used by `/repos/:owner/:repo/pulls`, which previously fetched a single `per_page: 50`
+  page and so could never show more than 50. GitHub orders by update time descending, so
+  the entries a cap drops are always the least recently updated — the reason old PRs
+  looked missing. The cap is `MAX_PULLS_LISTED` (default 300), and the page states when
+  it truncates rather than hiding it
+
 **`src/lib/markdown.ts`** - Markdown rendering
 - Uses `marked` for GitHub-flavored markdown
 - Emoji shortcode conversion via `gemoji` (`:thumbsup:` → 👍)
@@ -137,6 +146,9 @@ PORT=3000
 HOST=0.0.0.0
 DATABASE_PATH=./data/argus.db
 CACHE_TTL=60000          # API cache TTL in ms
+MAX_PULLS_LISTED=300     # Cap on the per-repo PR list. Each entry costs one more
+                         # (cached) request for its approval state.
+PULLS_REVIEW_CONCURRENCY=16  # Batch size for those approval lookups.
 HIGHLIGHT_WORKERS=-1     # Syntax-highlighting worker threads. -1 auto-sizes (max 4),
                          # 0 highlights in-process. Each worker costs ~57MB resident.
 BASE_URL=http://localhost:3000

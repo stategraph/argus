@@ -10,6 +10,21 @@
   <link rel="stylesheet" href="/static/css/main.css">
   <style>
     .pulls-page { max-width: 900px; margin: 0 auto; padding: 1rem; }
+    .pulls-truncated {
+      margin: 0 0 1rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      color: var(--warning);
+      background: var(--warning-surface);
+      border: 1px solid var(--warning-border);
+      border-radius: 6px;
+    }
+    .pulls-truncated code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+      padding: 0 0.25rem;
+    }
 
     .pulls-header { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
     .pulls-header h1 { font-size: 1.25rem; margin: 0; }
@@ -176,6 +191,15 @@
 
     <% if (stacks.length === 0 && standalone.length === 0) { %>
       <p class="empty-state">No pull requests found.</p>
+    <% } %>
+
+    <%# The list is capped. Say so, because a silently truncated list looks exactly like a
+        complete one, and the entries a cap drops are always the least recently updated. %>
+    <% if (truncated) { %>
+      <p class="pulls-truncated">
+        Showing the <%= shown %> most recently updated pull requests. There are more.
+        Raise <code>MAX_PULLS_LISTED</code> to show them.
+      </p>
     <% } %>
 
     <% if (stacks.length > 0) { %>
