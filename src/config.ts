@@ -49,6 +49,20 @@ export const config = {
     pollIntervalMs: 45000,
   },
 
+  // Repository pull-request list (/repos/:owner/:repo/pulls)
+  pulls: {
+    // How many pull requests the list shows. GitHub serves at most 100 per page, so this
+    // is read as several pages. The list is sorted by update time, newest first, so a cap
+    // drops the least recently updated ones — which is why it used to look as though old
+    // pull requests had disappeared. Anything still past the cap is now stated on the page
+    // rather than hidden.
+    maxListed: parseInt(optional('MAX_PULLS_LISTED', '300'), 10),
+    // Each listed pull request costs one more API call for its approval state. Fanning all
+    // of them out at once invites GitHub's secondary rate limit, so they go in batches, the
+    // same way prefetch warms PRs.
+    reviewConcurrency: parseInt(optional('PULLS_REVIEW_CONCURRENCY', '16'), 10),
+  },
+
   // Diff rendering
   diff: {
     // When a PR changes more than this many files, the Files view renders lightweight

@@ -38,6 +38,7 @@ import { computeMergeBase, computeRangeDiff, computeCrossDiff, computeCrossRevis
 import { getReviewedFiles, toggleFileReview, markFileReviewed, markFileUnreviewed } from '../lib/file-reviews.js';
 import { getReviewedCommits, toggleCommitReview } from '../lib/commit-reviews.js';
 import { buildFileTree } from '../lib/file-tree-builder.js';
+import { collectCommitIssueRefs, resolveIssueRefs } from '../lib/issue-refs.js';
 
 interface PRParams {
   owner: string;
@@ -112,6 +113,16 @@ export async function prRoutes(fastify: FastifyInstance) {
         // overlap with the rest of the batch instead of waiting for a second round-trip.
         // Both degrade to empty on failure (a PR may have no checks/statuses).
         const prPromise = fetchPR(octokit, owner, repo, prNumber, cacheMode);
+        const commitsPromise = fetchPRCommits(octokit, owner, repo, prNumber, cacheMode);
+        // The issues a PR's commits reference. Chained off the commits rather than awaited
+        // with them, so the per-issue lookups overlap with diff rendering instead of adding
+        // a round-trip in front of it. Every lookup is individually cached, so this is free
+        // on all but the first load, and a total failure costs the tab, not the page.
+        const issueRefsPromise = commitsPromise
+          .then((cs) =>
+            resolveIssueRefs(octokit, collectCommitIssueRefs(cs, owner, repo, prNumber), cacheMode)
+          )
+          .catch(() => []);
         const checksPromise = prPromise
           .then((pr) => fetchChecks(octokit, owner, repo, pr.head.sha, cacheMode))
           .catch(() => [] as any[]);
@@ -127,7 +138,7 @@ export async function prRoutes(fastify: FastifyInstance) {
               fetchIssueComments(octokit, owner, repo, prNumber, cacheMode),
               fetchReviewComments(octokit, owner, repo, prNumber, cacheMode),
               fetchReviews(octokit, owner, repo, prNumber, cacheMode),
-              fetchPRCommits(octokit, owner, repo, prNumber, cacheMode),
+              commitsPromise,
               fetchPRTimeline(octokit, owner, repo, prNumber, cacheMode),
               checksPromise,
               statusPromise,
@@ -592,6 +603,8 @@ export async function prRoutes(fastify: FastifyInstance) {
           ])
         );
 
+        const referencedIssues = await span('issuesMs', () => issueRefsPromise);
+
         const viewData = {
           title: `#${prNumber} ${pr.title} - Argus`,
           user: request.user,
@@ -626,6 +639,7 @@ export async function prRoutes(fastify: FastifyInstance) {
           toRevisionId,
           isCurrentRevisionExplicit,
           commits,
+          referencedIssues,
           fetchedAt,
           dataFetchedAt,
           inlineCommentFormTemplate: renderInlineCommentForm(),

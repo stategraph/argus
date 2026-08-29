@@ -3,6 +3,11 @@ import { requireAuth } from '../middleware/auth.js';
 import { createUserOctokit, fetchReviews, getApprovers } from '../lib/github.js';
 import { buildStacks } from '../lib/stacks.js';
 import { config } from '../config.js';
+import { collectCapped } from '../lib/paginate.js';
+import type { Octokit } from '@octokit/rest';
+
+/** One entry of the pull-request list response, as Octokit types it. */
+type PullListItem = Awaited<ReturnType<Octokit['pulls']['list']>>['data'][number];
 
 export async function repoRoutes(fastify: FastifyInstance) {
   // List accessible repos
@@ -69,34 +74,53 @@ export async function repoRoutes(fastify: FastifyInstance) {
       try {
         const octokit = createUserOctokit(request.user!.accessToken);
 
-        const { data: pulls } = await octokit.pulls.list({
-          owner,
-          repo,
-          state,
-          sort: 'updated',
-          direction: 'desc',
-          per_page: 50,
-        });
+        // Read pages until the cap is reached. GitHub serves at most 100 per page, so the
+        // old single per_page:50 call could never show more than 50 however many the repo
+        // had. Ordering is by update time descending, so what a cap drops is always the
+        // least recently updated — the reason old pull requests appeared to be missing.
+        const maxListed = config.pulls.maxListed;
+        const { items: pulls, truncated } = await collectCapped<PullListItem>(
+          octokit.paginate.iterator(octokit.pulls.list, {
+            owner,
+            repo,
+            state,
+            sort: 'updated',
+            direction: 'desc',
+            per_page: Math.min(100, Math.max(1, maxListed)),
+          }),
+          maxListed
+        );
 
         const login = request.user!.login;
 
         // Approval state per PR. Failures (e.g. permissions) degrade to "not approved".
-        const approvals = await Promise.all(
-          pulls.map(async (pr) => {
-            try {
-              const approvers = getApprovers(await fetchReviews(octokit, owner, repo, pr.number));
-              return {
-                approved: approvers.includes(login),
-                otherApprovers: approvers.filter((l) => l !== login),
-              };
-            } catch (err: any) {
-              // Degrade to "not approved", but never silently — a swallowed failure
-              // here is indistinguishable from a PR that genuinely has no approvals.
-              console.error(`Failed to fetch reviews for PR #${pr.number}:`, err.status, err.message);
-              return { approved: false, otherApprovers: [] as string[] };
-            }
-          })
-        );
+        // Batched rather than one Promise.all over the whole list: at the old cap of 50
+        // a single burst was tolerable, but the cap is now several hundred, and that many
+        // simultaneous requests is exactly what GitHub's secondary rate limit exists to
+        // refuse. Every response is cached, so only a cold list pays the full cost.
+        const approvals: Array<{ approved: boolean; otherApprovers: string[] }> = [];
+        const batchSize = Math.max(1, config.pulls.reviewConcurrency);
+        for (let i = 0; i < pulls.length; i += batchSize) {
+          const batch = pulls.slice(i, i + batchSize);
+          approvals.push(
+            ...(await Promise.all(
+              batch.map(async (pr) => {
+                try {
+                  const approvers = getApprovers(await fetchReviews(octokit, owner, repo, pr.number));
+                  return {
+                    approved: approvers.includes(login),
+                    otherApprovers: approvers.filter((l) => l !== login),
+                  };
+                } catch (err: any) {
+                  // Degrade to "not approved", but never silently — a swallowed failure
+                  // here is indistinguishable from a PR that genuinely has no approvals.
+                  console.error(`Failed to fetch reviews for PR #${pr.number}:`, err.status, err.message);
+                  return { approved: false, otherApprovers: [] as string[] };
+                }
+              })
+            ))
+          );
+        }
 
         const enrichedPulls = pulls.map((pr, i) => ({
           number: pr.number,
@@ -129,6 +153,9 @@ export async function repoRoutes(fastify: FastifyInstance) {
           state,
           stacks,
           standalone,
+          shown: pulls.length,
+          truncated,
+          maxListed,
         });
       } catch (err: any) {
         console.error('Error fetching PRs:', err);

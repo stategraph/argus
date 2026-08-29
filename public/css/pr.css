@@ -1022,3 +1022,120 @@ html.argus-loading .loading-overlay,
   font-size: 0.95rem;
   color: #333;
 }
+
+/* ---- Issues tab: issues referenced by the PR's commits ----------------------------- */
+
+.issue-ref-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.issue-ref-item + .issue-ref-item {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.issue-ref-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.issue-ref-row:hover {
+  background: var(--surface-hover);
+}
+
+/* Fixed width so the identifiers below line up into a column the eye can scan. */
+.issue-ref-state {
+  flex-shrink: 0;
+  width: 3.5rem;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0.125rem 0;
+  border-radius: 10px;
+}
+
+.issue-ref-state-open { color: var(--success); background: var(--success-surface); }
+.issue-ref-state-closed { color: var(--merged); background: #f3eefc; }
+.issue-ref-state-unknown { color: var(--fg-subtle); background: var(--surface); }
+
+.issue-ref-id {
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+
+.issue-ref-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue-ref-row:hover .issue-ref-title { text-decoration: underline; }
+
+/* A reference that could not be resolved still links out: the reader may have access
+   the token does not. It reads as absent detail, not as a title. */
+.issue-ref-missing {
+  color: var(--fg-subtle);
+  font-style: italic;
+}
+
+.issue-ref-row:hover .issue-ref-missing { text-decoration: none; }
+
+.issue-ref-kind {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 0.375rem;
+}
+
+.issue-refs-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--fg-muted);
+}
+
+.issue-refs-empty-mark {
+  font-size: 3rem;
+  line-height: 1;
+  margin-bottom: 1rem;
+  color: var(--fg-subtle);
+}
+
+.issue-refs-empty h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.issue-refs-empty p {
+  font-size: 0.9rem;
+  color: var(--fg-subtle);
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+.issue-refs-empty code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--surface);
+  border-radius: 4px;
+  padding: 0 0.25rem;
+}
