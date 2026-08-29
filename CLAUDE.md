@@ -166,6 +166,15 @@ BASE_URL=http://localhost:3000
 - Reply button handlers (mention vs quote reply)
 - No hydration needed - works without JavaScript
 
+**`public/js/pulls.js`** - Client-side filter for the PR list
+- Filters the rows already in the page: no request, no reload. 100ms after the last
+  keystroke, so a burst of typing filters once
+- The query is an AND over whitespace-separated terms. A term matches by substring
+  against the PR number (a leading `#` is dropped) or the title, case-insensitively
+- A stack whose rows all filter out hides, as does a section heading over an empty
+  section. The rail is hidden while a query is active: a filtered stack is no longer the
+  shape the rail draws
+
 ### Templates
 
 EJS templates in `src/templates/`. Key templates:
@@ -174,6 +183,10 @@ EJS templates in `src/templates/`. Key templates:
   holds two sections — Commits (expandable messages, each markable reviewed) then Files. Legacy
   `?tab=files` / `?tab=commits` links normalize to `review` in the route handler. The Issues tab
   lists the issues the commits reference, each linking out to github.com
+- **pulls.ejs** - Per-repo PR list, with the stack rail. Carries a search box that
+  `public/js/pulls.js` filters client-side; each row exposes `data-number` / `data-title`
+  for it. The box is `hidden` in the markup and revealed by the script, so the page still
+  works without JavaScript
 - **layout.ejs** - Base HTML wrapper with common header/footer
 - **range-diff.ejs** - Force push comparison view
 
