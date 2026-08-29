@@ -269,4 +269,7 @@ export const TTL = {
   headSha: 30_000,
   dashboard: config.cacheTtl * 1000,
   reviewRequests: 30_000,
+  // Issue titles referenced from commit messages. A title changes about as often as a
+  // PR's own, so it shares the general TTL rather than the fast-moving checks one.
+  issue: config.cacheTtl * 1000,
 } as const;

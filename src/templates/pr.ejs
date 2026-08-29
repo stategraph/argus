@@ -871,6 +871,11 @@
           <span class="tab-pill" title="Commits in this PR"><%= commits.length %> commits</span>
           <span class="tab-pill" title="Files changed"><%= files.length %> files</span>
         </button>
+        <button class="pr-tab <%= activeTab === 'issues' ? 'active' : '' %>" data-tab="issues">Issues
+          <% if (referencedIssues.length > 0) { %>
+            <span class="tab-pill" title="Issues referenced by this PR's commits"><%= referencedIssues.length %></span>
+          <% } %>
+        </button>
       </div>
 
       <!-- Conversation Tab -->
@@ -1371,6 +1376,57 @@
           </div>
         </div>
         </section>
+      </div>
+
+      <!-- Issues Tab. The issues this PR's commits name, in `#123` or `owner/repo#123`
+           form, resolved to their real titles. Argus has no issue view of its own, so
+           every link leaves for github.com. -->
+      <div class="pr-tab-content <%= activeTab === 'issues' ? 'active' : '' %>" data-tab-content="issues">
+        <% if (referencedIssues.length === 0) { %>
+          <div class="issue-refs-empty">
+            <div class="issue-refs-empty-mark">#</div>
+            <h2>No issues referenced</h2>
+            <p>No commit in this pull request names an issue. Write <code>#123</code> in a
+               commit message for an issue in this repository, or <code>owner/repo#123</code>
+               for one elsewhere.</p>
+          </div>
+        <% } else { %>
+          <section class="review-section" id="referenced-issues-section">
+            <header class="review-section-header">
+              <h2>Referenced issues</h2>
+              <span class="review-section-count"><%= referencedIssues.length %> referenced by <%= commits.length %> commit<%= commits.length === 1 ? '' : 's' %></span>
+            </header>
+            <ul class="issue-ref-list">
+              <% referencedIssues.forEach(issue => { %>
+                <%
+                  // `#42` on its own is ambiguous once other repositories are in the list,
+                  // so a reference outside this PR's repository always shows its full name.
+                  const isSameRepo = issue.owner.toLowerCase() === owner.toLowerCase()
+                    && issue.repo.toLowerCase() === repo.toLowerCase();
+                  const label = isSameRepo
+                    ? `#${issue.number}`
+                    : `${issue.owner}/${issue.repo}#${issue.number}`;
+                %>
+                <li class="issue-ref-item">
+                  <a class="issue-ref-row" href="<%= issue.htmlUrl %>" target="_blank" rel="noopener noreferrer">
+                    <span class="issue-ref-state issue-ref-state-<%= issue.state || 'unknown' %>">
+                      <%= issue.state ? (issue.state === 'open' ? 'Open' : 'Closed') : '?' %>
+                    </span>
+                    <span class="issue-ref-id"><%= label %></span>
+                    <% if (issue.title) { %>
+                      <span class="issue-ref-title"><%= issue.title %></span>
+                    <% } else { %>
+                      <span class="issue-ref-title issue-ref-missing"><%= issue.error %></span>
+                    <% } %>
+                    <% if (issue.isPullRequest) { %>
+                      <span class="issue-ref-kind" title="This number is a pull request, not an issue">PR</span>
+                    <% } %>
+                  </a>
+                </li>
+              <% }) %>
+            </ul>
+          </section>
+        <% } %>
       </div>
     </div>
 

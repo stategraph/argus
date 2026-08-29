@@ -83,6 +83,16 @@ HTML Response (with optional client-side JS enhancement)
 - Generates range-diffs for force push comparison
 - Token sanitization in error messages
 
+**`src/lib/issue-refs.ts`** - Issues referenced from commit messages
+- Parses the `#123` and `owner/repo#123` convention out of commit messages. Parsing is pure
+  and offline, so the convention is testable without the network
+- A lookbehind keeps URLs out (`github.com/owner/repo#3` is not a reference), and the PR's
+  own number is dropped as self-reference
+- `resolveIssueRefs` fetches the titles in parallel through the same ETag cache as every
+  other GitHub resource. A reference that 404s becomes a row with an error, not a failed page
+- The lookups chain off the commits promise in `pr.ts`, so they overlap with diff rendering
+  rather than adding a round-trip in front of it
+
 **`src/lib/markdown.ts`** - Markdown rendering
 - Uses `marked` for GitHub-flavored markdown
 - Emoji shortcode conversion via `gemoji` (`:thumbsup:` → 👍)
@@ -148,9 +158,10 @@ BASE_URL=http://localhost:3000
 
 EJS templates in `src/templates/`. Key templates:
 
-- **pr.ejs** - Main PR review page. Tabs: Conversation, Checks, Review. The Review tab holds
-  two sections — Commits (expandable messages, each markable reviewed) then Files. Legacy
-  `?tab=files` / `?tab=commits` links normalize to `review` in the route handler
+- **pr.ejs** - Main PR review page. Tabs: Conversation, Checks, Review, Issues. The Review tab
+  holds two sections — Commits (expandable messages, each markable reviewed) then Files. Legacy
+  `?tab=files` / `?tab=commits` links normalize to `review` in the route handler. The Issues tab
+  lists the issues the commits reference, each linking out to github.com
 - **layout.ejs** - Base HTML wrapper with common header/footer
 - **range-diff.ejs** - Force push comparison view
 
